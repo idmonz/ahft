@@ -12,7 +12,10 @@ in `scripts/` and the project documents live under `docs/`.
 - `CHANGELOG.md` – version history
 
 
-Version 38.0.0 ("Helios Nexus") implements distributional RL and adaptive Kelly sizing. See `CHANGELOG.md` for details.
 
-The upcoming v38 release, codenamed "Helios Nexus", is outlined in docs/ROADMAP_v38.md.
+Version 38.0.0 ("Helios Nexus") implements distributional RL and adaptive Kelly
+sizing. See `CHANGELOG.md` for details.
+
+The v38 release, codenamed "Helios Nexus", is detailed in
+`docs/ROADMAP_v38.md`.
 
