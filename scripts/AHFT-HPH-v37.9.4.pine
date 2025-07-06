@@ -804,14 +804,12 @@ if can_make_decision_event
             if bar_index < WARMUP_BARS or rolling_mdd > 0.10
                 kelly_frac := math.min(kelly_frac, 0.25)
             
-            loc_vol_pct = ta.ema(ta.tr, 10) / close
-            risk_per_unit = math.max(1e-9, loc_vol_pct * close * RISK_CONTRACT_VALUE)
             atr_now = ta.atr(14)
             atr_mean = ta.sma(atr_now, 100)
             atr_std = ta.stdev(atr_now, 100)
             atr_z = atr_std > 0 ? (atr_now - atr_mean) / atr_std : 0.0
 
-            
+
             loc_vol_pct = ta.ema(ta.tr, 10) / close
             risk_per_unit = math.max(1e-9, loc_vol_pct * close * RISK_CONTRACT_VALUE)
 
@@ -843,9 +841,6 @@ if can_make_decision_event
             clamp_kappa = 5 + 10 * math.exp(-vol_rank)
             pos_size_unclamped = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
             pos_size = pos_size_unclamped / (1 + pos_size_unclamped / clamp_kappa)
-
-            pos_size_unclamped = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
-            pos_size = pos_size_unclamped / (1 + pos_size_unclamped / POSITION_CLAMP_KAPPA)
 
             max_qty_limit = unified_signal_strength > 0 ? max_long_qty_input : max_short_qty_input
             capped_size = math.min(pos_size, max_qty_limit)
@@ -881,8 +876,6 @@ if is_entry_fill_event
     hard_stop_dist = (strategy.equity * (HARD_STOP_PCT / 100)) / math.max(math.abs(strategy.position_size), 1e-6)
     risk_dist = math.min(initial_risk_budget, hard_stop_dist)
     initial_sl_price = strategy.position_size > 0 ? close - risk_dist : close + risk_dist
-
-    initial_sl_price = strategy.position_size > 0 ? close - initial_risk_budget : close + initial_risk_budget
 
     last_trail_stop := initial_sl_price
     hh_since_entry := high[1]
