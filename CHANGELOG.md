@@ -1,4 +1,8 @@
 # Changelog
+## v38.2.0 "Helios Nexus Patch 2" - 2025-07-08
+- Added commission-aware entry gate and higher meta-exit threshold.
+- Volatility floor raised to 0.15 and TP reduction scaled back.
+- Enabled QR-DQN and CVaR ε-greedy by default.
 
 ## v38.1.0 "Helios Nexus Patch" - 2025-07-07
 - Rebalanced TP/SL multipliers by volatility.
