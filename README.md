@@ -12,7 +12,12 @@ in `scripts/` and the project documents live under `docs/`.
 - `CHANGELOG.md` – version history
 
 
+Version 37.9.4 ("Quant Clamp") introduces risk-clamp recalibration and
+enhanced stop logic. See `CHANGELOG.md` for a detailed summary.
+
+
 Version 38.0.0 ("Helios Nexus") implements distributional RL and adaptive Kelly sizing. See `CHANGELOG.md` for details.
 
 The upcoming v38 release, codenamed "Helios Nexus", is outlined in docs/ROADMAP_v38.md.
+
 
