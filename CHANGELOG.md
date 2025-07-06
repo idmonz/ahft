@@ -1,4 +1,8 @@
 # Changelog
+## v38.3.0 "Helios Nexus Patch 3" - 2025-07-09
+- Implemented size-aware commission gate and multi-symbol DistRL.
+- Added decay factor for QR-DQN histogram.
+
 ## v38.2r-1 "Helios Nexus Patch 2 Hotfix" - 2025-07-08
 - Fixed commission threshold bug causing compilation error.
 - No functional changes other than bug fix.

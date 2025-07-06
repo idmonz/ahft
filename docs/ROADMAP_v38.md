@@ -1,6 +1,6 @@
 # Helios Nexus Roadmap (v38)
 
-**Status**: Completed with the release of v38.0.0 on 2025-07-06. Patch v38.2r-1 fixes commission handling and v38.2.0 further refines risk controls.
+**Status**: Completed with the release of v38.0.0 on 2025-07-06. Patch v38.3.0 adds multi-symbol DistRL and commission-gate fixes; v38.2r-1 fixed commission handling and v38.2.0 refined risk controls.
 
 The v38 major update, codenamed **"Helios Nexus"**, introduces a structured
 series of enhancements. Each phase has concrete goals and validation steps.
