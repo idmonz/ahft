@@ -1,4 +1,9 @@
 # Changelog
+## v38.6.0 "Helios Nexus Patch 6" - 2025-07-12
+- Reduced risk floor to 0.4% equity and added dynamic leverage clamp.
+- Entry threshold now uses 75th percentile of signal history.
+- Variants explore more with τ=0.25 and α,β=0.5.
+- Partial exits occur at 0.8R and 1.6R; added order-book imbalance feature.
 ## v38.5.0 "Helios Nexus Patch 5" - 2025-07-11
 - Introduced risk capsule sizing and partial exit at 1:1 R:R.
 - Expanded Thompson variants and tuned reward scaling.
