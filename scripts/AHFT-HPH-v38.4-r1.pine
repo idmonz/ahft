@@ -1,17 +1,17 @@
 //@version=5
 // ==============================================================================
 
-// 📚 프로젝트: AHFT - Hephaestus-Prime (v38.4.0) "Helios Nexus – Adaptive Bayesian"
+// 📚 프로젝트: AHFT - Hephaestus-Prime (v38.4-r1) "Helios Nexus – Adaptive Bayesian"
 // 🎯 목표: v38 Helios Nexus 로드맵 기능 구현.
 //          - Safe array get 패턴 정식 채택.
 //          - QR‑DQN DistRL 및 CVaR ε‑Greedy 옵션.
 //          - MSGARCH‑GJR Regime 2.0으로 λ 범위 제한.
 //          - Bayesian Auto-Tune과 κ(t)=κ₀·e^(−DD·φ) 적용.
 //          - 다중 심볼 DistRL, ONNX/Wasm 백엔드 모의.
-// 📑 AUDIT v38.4.0: Bayesian parameter search and enhanced DistRL transfer.
+// 📑 AUDIT v38.4-r1: Bayesian parameter search and enhanced DistRL transfer.
 // ==============================================================================
 
-strategy("AHFT - Hephaestus-Prime (v38.4.0)", "AHFT-HPH-v38.4.0", overlay = true, initial_capital = 100000,
+strategy("AHFT - Hephaestus-Prime (v38.4-r1)", "AHFT-HPH-v38.4-r1", overlay = true, initial_capital = 100000,
          commission_type = strategy.commission.percent, commission_value = 0.04, slippage = 1,
          calc_on_every_tick = true, process_orders_on_close = false, max_bars_back = 5000, dynamic_requests = true)
 
@@ -19,7 +19,7 @@ strategy("AHFT - Hephaestus-Prime (v38.4.0)", "AHFT-HPH-v38.4.0", overlay = true
 // 0. 버전 상수 (헌장 제0조)
 //───────────────────────────────────────────────────────────────────────────────
 
-const string CODE_VERSION  = "v38.4.0"
+const string CODE_VERSION  = "v38.4-r1"
 
 const float  GENE_VERSION  = 36.0
 //───────────────────────────────────────────────────────────────────────────────
@@ -192,10 +192,6 @@ varip array<float> variant_conf = array.new_float()
 varip array<float> variant_tsl  = array.new_float()
 varip array<float> variant_tp   = array.new_float()
 
-//–– Bayesian search storage
-varip array<float> bayes_alpha  = array.new_float()
-varip array<float> bayes_beta   = array.new_float()
-varip array<float> bayes_reward = array.new_float()
 
 //–– DBs (flattened)
 int DNA_VECTOR_SIZE = 12, PARAMS_VECTOR_SIZE = 3, OPTIMAL_PATH_GENE_LENGTH = DNA_VECTOR_SIZE+PARAMS_VECTOR_SIZE
@@ -277,8 +273,8 @@ rand_idx(maxN) =>
 
 //–– Beta random generator (Marsaglia)
 f_rand_beta(a, b) =>
-    u1 = math.rand()
-    u2 = math.rand()
+    u1 = math.random(0.0, 1.0)
+    u2 = math.random(0.0, 1.0)
     v = math.pow(u1, 1 / a)
     w = math.pow(u2, 1 / b)
     v / (v + w)
@@ -293,7 +289,7 @@ f_choose_variant() =>
         s = math.exp((th + rw) / BAYES_TEMP)
         array.push(scores, s)
         tot += s
-    r = math.rand(0.0, tot)
+    r = math.random(0.0, tot)
     acc = 0.0
     idx_sel = 0
     for j = 0 to array.size(scores) - 1
@@ -749,9 +745,9 @@ if barstate.isfirst
     for p = 0 to array.size(parts) - 1
         vals = str.split(array.get(parts, p), ",")
         if array.size(vals) == 3
-            array.push(variant_conf, str.tofloat(array.get(vals, 0)))
-            array.push(variant_tsl, str.tofloat(array.get(vals, 1)))
-            array.push(variant_tp, str.tofloat(array.get(vals, 2)))
+            array.push(variant_conf, str.tonumber(array.get(vals, 0)))
+            array.push(variant_tsl, str.tonumber(array.get(vals, 1)))
+            array.push(variant_tp, str.tonumber(array.get(vals, 2)))
             array.push(bayes_alpha, 1.0)
             array.push(bayes_beta, 1.0)
             array.push(bayes_reward, 0.0)

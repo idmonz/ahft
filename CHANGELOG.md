@@ -1,5 +1,5 @@
 # Changelog
-## v38.4.0 "Helios Nexus Patch 4" - 2025-07-10
+## v38.4-r1 "Helios Nexus Patch 4" - 2025-07-10
 - Added Bayesian parameter search and improved DistRL transfer.
 - Optimized commission gate with contract value check.
 - Risk floor now scales with CVaR rank.
