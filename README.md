@@ -8,4 +8,3 @@ This repository hosts the Pine Script implementation and documentation for **AHF
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
 
-The previous monolithic README has been split for easier navigation. Refer to each file for detailed explanations and usage.
