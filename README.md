@@ -86,6 +86,7 @@ EXIT_VOL_MULT              = input.float(2.5,  "Climax: Vol ×",    group = grou
 EXIT_RSI_THRESH            = input.float(85.0, "Climax: RSI",      group = group_exit)
 EXIT_FUNCTORIALITY_THRESH  = input.float(0.4,  "Predict-Collapse", group = group_exit)
 TIME_STOP_BARS             = input.int(96, "Time-Stop (Bars)", group=group_exit, tooltip="수익성이 없는 포지션을 N개의 봉 이후 강제 청산합니다. (0으로 비활성화)")
+HARD_STOP_PCT             = input.float(5.0,  "Hard Equity Stop %", minval=1.0, maxval=20.0, step=0.5, group=group_exit)
 
 //▬▬▬ (G) UI ▬▬▬
 group_visual               = "🎨 UI"
@@ -756,6 +757,9 @@ if can_make_decision_event
     synthesis_results = f_synthesize_meta_parameters(k_neighbors_strat, flat_optimal_path_db)
     base_confidence = f_safe_array_get(synthesis_results, 0, 0.0)
     is_opportunity_valid = (math.abs(unified_signal_strength) > adaptive_entry_sig_threshold) and (base_confidence > ENTRY_CONFIDENCE_THRESHOLD)
+    price_gap = math.abs(open - close[1])
+    if session.isfirstbar and price_gap > 0.8 * ta.atr(14)
+        is_opportunity_valid := false
     
     bars_since_last_trade = ta.barssince(is_trade_closed_event)
     recent_no_trade = nz(bars_since_last_trade)
@@ -784,9 +788,15 @@ if can_make_decision_event
                 kelly_frac := WARMUP_KELLY_FRAC
             if USE_DRAWDOWN_KELLY and rolling_mdd > 0
                 kelly_frac := kelly_frac * math.min(1.0, (DRAWDOWN_TARGET_PCT / 100) / math.max(rolling_mdd, 1e-6))
+            if bar_index < WARMUP_BARS or rolling_mdd > 0.10
+                kelly_frac := math.min(kelly_frac, 0.25)
             
             loc_vol_pct = ta.ema(ta.tr, 10) / close
             risk_per_unit = math.max(1e-9, loc_vol_pct * close * RISK_CONTRACT_VALUE)
+            atr_now = ta.atr(14)
+            atr_mean = ta.sma(atr_now, 100)
+            atr_std = ta.stdev(atr_now, 100)
+            atr_z = atr_std > 0 ? (atr_now - atr_mean) / atr_std : 0.0
             target_risk_raw = (strategy.equity * (VOLATILITY_TARGET_PCT / 100)) * kelly_frac
             target_risk_per_trade = math.min(strategy.equity * MAX_RISK_PER_TRADE, math.max(strategy.equity * MIN_RISK_PER_TRADE, target_risk_raw))
             cvar_proxy = historical_var95 > 0 ? historical_cvar95 / historical_var95 : 1.0
@@ -796,6 +806,9 @@ if can_make_decision_event
             lambda_risk_budget := math.max(0.05, lambda_smoothed)
             if bar_index < WARMUP_BARS
                 lambda_risk_budget := WARMUP_LAMBDA
+            if atr_z > 2
+                lambda_risk_budget := lambda_risk_budget * 0.5
+                dynamic_tsl_mult *= 0.7
             kelly_size = risk_per_unit > 0 ? target_risk_per_trade / risk_per_unit : 0
             hist_ok_cvar = not na(historical_cvar95)
             ema_cvar = ta.ema(hist_ok_cvar ? historical_cvar95 : 0.0, 100)
@@ -805,8 +818,10 @@ if can_make_decision_event
             market_impact_score = syminfo.type == "futures" ? f_normalize(ta.sma(volume, 5) / nz(ta.sma(ta.tr, 20), 1)) : f_normalize((high - low) / base_rng)
             raw_floor = 0.5 * (1 - cvar_rank) + 0.5 * market_impact_score
             min_lambda_floor = math.max(0.05, math.min(0.95, raw_floor))
+            vol_rank = ta.percentrank(loc_vol_pct, 100)
+            clamp_kappa = 5 + 10 * math.exp(-vol_rank)
             pos_size_unclamped = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
-            pos_size = pos_size_unclamped / (1 + pos_size_unclamped / POSITION_CLAMP_KAPPA)
+            pos_size = pos_size_unclamped / (1 + pos_size_unclamped / clamp_kappa)
             max_qty_limit = unified_signal_strength > 0 ? max_long_qty_input : max_short_qty_input
             capped_size = math.min(pos_size, max_qty_limit)
             step = contract_step_size_input
@@ -837,13 +852,17 @@ if is_entry_fill_event
     initial_tp_mult = DYNAMIC_RR_ENABLED ? math.max(2.0, 2.5 - vol_regime) * initial_tsl_mult : initial_tsl_mult * 2.0
 
     initial_risk_budget = realized_volatility * initial_tsl_mult
-    initial_sl_price = strategy.position_size > 0 ? close - initial_risk_budget : close + initial_risk_budget
+    hard_stop_dist = (strategy.equity * (HARD_STOP_PCT / 100)) / math.max(math.abs(strategy.position_size), 1e-6)
+    risk_dist = math.min(initial_risk_budget, hard_stop_dist)
+    initial_sl_price = strategy.position_size > 0 ? close - risk_dist : close + risk_dist
     last_trail_stop := initial_sl_price
     hh_since_entry := high[1]
     ll_since_entry := low[1]
     initial_tp_price = strategy.position_size > 0 ? close + realized_volatility * initial_tp_mult : close - realized_volatility * initial_tp_mult
     last_trail_tp := initial_tp_price
     strategy.exit("SL/TP", from_entry = strategy.position_size > 0 ? "Long" : "Short", stop = initial_sl_price, limit = initial_tp_price)
+    hard_stop_price = strategy.position_size > 0 ? strategy.position_avg_price - hard_stop_dist : strategy.position_avg_price + hard_stop_dist
+    strategy.exit("HardSL", from_entry = strategy.position_size > 0 ? "Long" : "Short", stop = hard_stop_price)
     var_dna_for_trade := f_create_holographic_vector()
     var_entry_bar_index := bar_index
     var_entry_time := time
@@ -1171,6 +1190,7 @@ v37.8 신규 5차 방어선: 시간 정지 (Time-Stop)
 조건: 위 방어선들이 뚫리지 않는 동안, 진입 시 설정된 동적 트레일링 스탑(TSL) 또는 목표가(TP)에 도달할 때.
 v37.8 강화 (Dynamic R:R Target): initial_tp_mult 계산 시, 시장 변동성 순위(vol_regime)를 반영하여 변동성이 높을수록 더 보수적인(낮은) TP 배수를 설정합니다. 이는 불안정한 시장에서 이익을 조기에 확보하여 승률을 높이고 Pay-off Ratio를 개선하는 것을 목표로 합니다.
 v37.9 강화 (ATR-Guard TSL): initial_tsl_mult 계산 시, math.max(1.2, ...) 가드를 추가하여 변동성이 아무리 낮아져도 최소한의 손절폭을 확보, 급격한 갭 발생에 대한 방어력을 높였습니다.
+v37.9.4 예고 (Guardian): Hard Equity Stop 5%와 Vol-Shock Guard(ATR z-score > 2 시 λ 50%↓, TSL 30%↓)가 추가되어 대규모 변동 시 자본 보호 기능이 강화됩니다.
 [PART 12/30] 학습 루프: 스스로 현명해지는 방법
 AOML (적응형 온라인 메타 학습): (v37.2 문서와 동일) Tail-Aware Reward Shaping과 SGDR 스케줄러를 통해 전문가 가중치를 지속적으로 업데이트합니다.
 최적 경로 데이터베이스 강화: (v37.2 문서와 동일) 매 거래 종료 시, '가상의 최적 파라미터'를 역산하여 새로운 '성공 유전자'를 DB에 추가합니다.
