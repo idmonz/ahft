@@ -1,5 +1,12 @@
 # Changelog
 
+## v38.0.0 "Helios Nexus" - 2025-07-06
+
+- Integrated QR-DQN distributional RL with safe array checks.
+- Added CVaR ε-greedy exploration and drawdown-aware Kelly sizing.
+- Introduced MSGARCH regime limits and refined λ risk budget.
+- Built from v37.9.4 without weakening existing logic.
+
 ## v37.9.4 "Quant Clamp" - 2025-07-06
 
 - Added dynamic clamp recalibration for lambda risk budget and position kappa.
