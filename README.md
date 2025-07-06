@@ -7,4 +7,4 @@ This repository hosts the Pine Script implementation and documentation for **AHF
 - `scripts/AHFT-HPH-v37.9.4.pine` – Pine Script strategy for version 37.9.4
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
-   CHANGELOG.md - development record of each vesion
+-  'CHANGELOG.md' - development record of each vesion
