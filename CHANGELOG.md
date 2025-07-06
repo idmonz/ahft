@@ -1,4 +1,6 @@
 # Changelog
+## v38.6r-1 "Helios Nexus Patch 6 Hotfix" - 2025-07-12
+- Fixed a function definition error that caused compilation failure in v38.6.0.
 ## v38.6.0 "Helios Nexus Patch 6" - 2025-07-12
 - Reduced risk floor to 0.4% equity and added dynamic leverage clamp.
 - Entry threshold now uses 75th percentile of signal history.

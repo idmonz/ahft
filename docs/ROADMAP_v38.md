@@ -1,6 +1,6 @@
 # Helios Nexus Roadmap (v38)
 
-**Status**: Completed with the release of v38.0.0 on 2025-07-06. Patch v38.6.0 introduces refined entry thresholds and leverage clamp. Patch v38.5.0 introduces a risk capsule and partial exits. Patch v38.4-r1 adds Bayesian tuning and transfer improvements. Patch v38.3.0 adds multi-symbol DistRL and commission-gate fixes; v38.2r-1 fixed commission handling and v38.2.0 refined risk controls.
+**Status**: Completed with the release of v38.0.0 on 2025-07-06. Patch v38.6r-1 fixes a compile error in patch 6. Patch v38.6.0 introduces refined entry thresholds and leverage clamp. Patch v38.5.0 introduces a risk capsule and partial exits. Patch v38.4-r1 adds Bayesian tuning and transfer improvements. Patch v38.3.0 adds multi-symbol DistRL and commission-gate fixes; v38.2r-1 fixed commission handling and v38.2.0 refined risk controls.
 
 The v38 major update, codenamed **"Helios Nexus"**, introduces a structured
 series of enhancements. Each phase has concrete goals and validation steps.

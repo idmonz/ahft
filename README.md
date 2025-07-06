@@ -5,7 +5,8 @@ This repository hosts the Pine Script implementation and documentation for
 in `scripts/` and the project documents live under `docs/`.
 
 ## Layout
-- `scripts/AHFT-HPH-v38.6.0.pine` – Pine Script strategy for version 38.6.0
+ - `scripts/AHFT-HPH-v38.6r-1.pine` – Pine Script strategy for version 38.6r-1
+ - `scripts/AHFT-HPH-v38.6.0.pine` – Pine Script strategy for version 38.6.0
 - `scripts/AHFT-HPH-v38.5.0.pine` – Pine Script strategy for version 38.5.0
 - `scripts/AHFT-HPH-v38.4-r1.pine` – Pine Script strategy for version 38.4-r1
 - `scripts/AHFT-HPH-v38.3.0.pine` – Pine Script strategy for version 38.3.0
@@ -18,7 +19,7 @@ in `scripts/` and the project documents live under `docs/`.
 - `docs/CHARTER.md` – development doctrine and historical notes
 - `CHANGELOG.md` – version history
 
-Version 38.6.0 tweaks risk thresholds with a 0.4% risk floor, dynamic leverage clamp and order-book feature. Version 38.5.0 introduces a risk capsule, partial exits and expanded Bayesian variants. Version 38.4-r1 introduces Bayesian parameter tuning and improved DistRL transfer. Version 38.3.0 adds multi-symbol transfer learning and size-aware commission gating. Version 38.2r-1 fixes commission threshold calculation. The original 38.2.0 release added commission-aware entry gating and refined meta-exit logic. Version 38.1.0 ("Helios Nexus Patch") adds refined risk controls.
+Version 38.6r-1 fixes a function definition error in v38.6.0. Version 38.6.0 tweaks risk thresholds with a 0.4% risk floor, dynamic leverage clamp and order-book feature. Version 38.5.0 introduces a risk capsule, partial exits and expanded Bayesian variants. Version 38.4-r1 introduces Bayesian parameter tuning and improved DistRL transfer. Version 38.3.0 adds multi-symbol transfer learning and size-aware commission gating. Version 38.2r-1 fixes commission threshold calculation. The original 38.2.0 release added commission-aware entry gating and refined meta-exit logic. Version 38.1.0 ("Helios Nexus Patch") adds refined risk controls.
 See `CHANGELOG.md` for details.
 The v38 release, codenamed "Helios Nexus", is detailed in
 `docs/ROADMAP_v38.md`.
