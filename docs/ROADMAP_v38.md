@@ -1,6 +1,6 @@
 # Helios Nexus Roadmap (v38)
 
-**Status**: Completed with the release of v38.0.0 on 2025-07-06.
+**Status**: Completed with the release of v38.0.0 on 2025-07-06. Patch v38.1.0 adds refined risk controls.
 
 The v38 major update, codenamed **"Helios Nexus"**, introduces a structured
 series of enhancements. Each phase has concrete goals and validation steps.

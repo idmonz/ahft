@@ -1,5 +1,12 @@
 # Changelog
 
+## v38.1.0 "Helios Nexus Patch" - 2025-07-07
+- Rebalanced TP/SL multipliers by volatility.
+- Tightened meta-exit threshold to 0.90 with severity filter.
+- Corrected risk per unit using ATR.
+- Increased drawdown φ default to 3.0.
+
+
 ## v38.0.0 "Helios Nexus" - 2025-07-06
 
 - Integrated QR-DQN distributional RL with safe array checks.

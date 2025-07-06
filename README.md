@@ -6,6 +6,7 @@ in `scripts/` and the project documents live under `docs/`.
 
 ## Layout
 
+- `scripts/AHFT-HPH-v38.1.0.pine` – Pine Script strategy for version 38.1.0
 - `scripts/AHFT-HPH-v38.0.0.pine` – Pine Script strategy for version 38.0.0
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
@@ -13,7 +14,7 @@ in `scripts/` and the project documents live under `docs/`.
 
 
 
-Version 38.0.0 ("Helios Nexus") implements distributional RL and adaptive Kelly
+Version 38.1.0 ("Helios Nexus Patch") adds refined risk controls. Version 38.0.0 ("Helios Nexus") implements distributional RL and adaptive Kelly
 sizing. See `CHANGELOG.md` for details.
 
 The v38 release, codenamed "Helios Nexus", is detailed in
