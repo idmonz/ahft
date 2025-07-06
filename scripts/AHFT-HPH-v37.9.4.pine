@@ -193,6 +193,13 @@ var int var_entry_bar_index          = 0
 var int var_entry_time               = 0
 var float var_initial_atr            = 0.0
 
+//–– Local sizing helpers (declared once per constitution)
+float loc_vol_pct_calc = na
+float risk_per_unit_calc = na
+float pos_size_unclamped_calc = na
+float pos_size_calc = na
+float init_sl_price = na
+
 //── Futures-data caches
 var float oi_val                     = na
 var float fr_val                     = na
@@ -794,8 +801,8 @@ if can_make_decision_event
             if bar_index < WARMUP_BARS or rolling_mdd > 0.10
                 kelly_frac := math.min(kelly_frac, 0.25)
             
-            loc_vol_pct_calc = ta.ema(ta.tr, 10) / close
-            risk_per_unit_calc = math.max(1e-9, loc_vol_pct_calc * close * RISK_CONTRACT_VALUE)
+            loc_vol_pct_calc := ta.ema(ta.tr, 10) / close
+            risk_per_unit_calc := math.max(1e-9, loc_vol_pct_calc * close * RISK_CONTRACT_VALUE)
             atr_now = ta.atr(14)
             atr_mean = ta.sma(atr_now, 100)
             atr_std = ta.stdev(atr_now, 100)
@@ -823,8 +830,8 @@ if can_make_decision_event
             min_lambda_floor = math.max(0.05, math.min(0.95, raw_floor))
             vol_rank = ta.percentrank(loc_vol_pct_calc, 100)
             clamp_kappa = 5 + 10 * math.exp(-vol_rank)
-            pos_size_unclamped_calc = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
-            pos_size_calc = pos_size_unclamped_calc / (1 + pos_size_unclamped_calc / clamp_kappa)
+            pos_size_unclamped_calc := kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
+            pos_size_calc := pos_size_unclamped_calc / (1 + pos_size_unclamped_calc / clamp_kappa)
             max_qty_limit = unified_signal_strength > 0 ? max_long_qty_input : max_short_qty_input
             capped_size = math.min(pos_size_calc, max_qty_limit)
             step = contract_step_size_input
@@ -857,7 +864,7 @@ if is_entry_fill_event
     initial_risk_budget = realized_volatility * initial_tsl_mult
     hard_stop_dist = (strategy.equity * (HARD_STOP_PCT / 100)) / math.max(math.abs(strategy.position_size), 1e-6)
     risk_dist = math.min(initial_risk_budget, hard_stop_dist)
-    init_sl_price = strategy.position_size > 0 ? close - risk_dist : close + risk_dist
+    init_sl_price := strategy.position_size > 0 ? close - risk_dist : close + risk_dist
     last_trail_stop := init_sl_price
     hh_since_entry := high[1]
     ll_since_entry := low[1]
