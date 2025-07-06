@@ -1,0 +1,1143 @@
+//@version=5
+// ==============================================================================
+
+// 📚 프로젝트: AHFT - Hephaestus-Prime (v38.2r-1) "Helios Nexus" (Helios Nexus Release)
+// 🎯 목표: v38 Helios Nexus 로드맵 기능 구현.
+//          - Safe array get 패턴 정식 채택.
+//          - QR‑DQN DistRL 및 CVaR ε‑Greedy 옵션.
+//          - MSGARCH‑GJR Regime 2.0으로 λ 범위 제한.
+//          - Bayesian Auto-Tune과 κ(t)=κ₀·e^(−DD·φ) 적용.
+//          - 다중 심볼 DistRL, ONNX/Wasm 백엔드 모의.
+// 📑 AUDIT v38.2r-1: Commission gate bug fix.
+// ==============================================================================
+
+strategy("AHFT - Hephaestus-Prime (v38.2r-1)", "AHFT-HPH-v38.2r-1", overlay = true, initial_capital = 100000,
+         commission_type = strategy.commission.percent, commission_value = 0.04, slippage = 1,
+         calc_on_every_tick = true, process_orders_on_close = false, max_bars_back = 5000, dynamic_requests = true)
+
+//───────────────────────────────────────────────────────────────────────────────
+// 0. 버전 상수 (헌장 제0조)
+//───────────────────────────────────────────────────────────────────────────────
+
+const string CODE_VERSION  = "v38.2r-1"
+
+const float  GENE_VERSION  = 36.0
+//───────────────────────────────────────────────────────────────────────────────
+// 1. INPUTS (헌장 제1조)
+//───────────────────────────────────────────────────────────────────────────────
+//▬▬▬ (A) MTF ▬▬▬
+group_mtf          = "🔭 Multi-Timeframe Consciousness"
+MACRO_TIMEFRAME    = input.timeframe("D",   "1. Macro Timeframe (W, D)",  group = group_mtf)
+MESO_TIMEFRAME     = input.timeframe("240", "2. Meso Timeframe (4H, 2H)", group = group_mtf)
+MICRO_TIMEFRAME    = input.timeframe("15",  "3. Micro Timeframe (Exit)",  group = group_mtf)
+
+//▬▬▬ (B) EXPERTS ▬▬▬
+group_experts      = "🧑‍🔬 Expert Ecosystem & Core"
+PATCH_TST_LENGTH   = input.int(64,  "A1: PatchTST Lookback",                 group = group_experts)
+HURST_RS_PERIOD    = input.int(100, "Hurst R/S Period",                     group = group_experts)
+HURST_DFA_SCALES   = input.string("8,16,32,64", "Hurst DFA Scales",            group = group_experts)
+BETA_BENCHMARK_TICKER = input.string("SP:SPX", "Meso-Beta: Benchmark",         group = group_experts)
+BETA_LOOKBACK      = input.int(50,  "Meso-Beta: Lookback",                  group = group_experts)
+MESO_MOMENTUM_LOOKBACK = input.int(48, "Meso-Momentum: Lookback",             group = group_experts)
+MSGARCH_VOL_LEN    = input.int(21,  "MSGARCH: Vol Lookback",                group = group_experts)
+MSGARCH_TREND_LEN  = input.int(34,  "MSGARCH: Trend Lookback",              group = group_experts)
+asy_coef_input     = input.float(0.2, "MSGARCH: Asym Penalty", minval = 0.0, maxval = 1.0, step = 0.05, group = group_experts)
+ofpi_length_input  = input.int(14,  "OFPI: Length",  minval = 5, maxval = 30,                 group = group_experts)
+ofpi_t3_length_input = input.int(5,   "OFPI: T3 Len", minval = 3, maxval = 10,                  group = group_experts)
+ofpi_t3_vfactor_input = input.float(0.7,"OFPI: T3 V", minval = 0.5, maxval = 1.0, step = 0.05,         group = group_experts)
+functoriality_len1_input = input.int(5,  "Functoriality: SMA1", minval = 2,            group = group_experts)
+functoriality_len2_input = input.int(20, "Functoriality: SMA2", minval = 5,            group = group_experts)
+functoriality_len3_input = input.int(60, "Functoriality: SMA3", minval = 10,           group = group_experts)
+oi_symbol = input.string("BINANCE:BTCUSDTFOI",      "Futures: Open-Interest Symbol", group = group_experts)
+fr_symbol = input.string("BINANCE:BTCUSDT_PERP_FR", "Futures: Funding-Rate Symbol",  group = group_experts)
+
+//▬▬▬ (C) LEARNING ▬▬▬
+group_learning            = "🎓 Dual-Core Learning Engine"
+LEARNING_LOOKBACK         = input.int(1000, "Memory Lookback (bars)", minval = 500, maxval = 4800, step = 100, group = group_learning, tooltip="ANN DB 활성화를 위해 1000으로 조정 권장")
+OPTIMAL_PATH_DB_SIZE      = input.int(500,  "Strategist DB size",            group = group_learning, tooltip="DB 크기를 500으로 확장 권장")
+EXPERT_BEHAVIOR_DB_SIZE   = input.int(250,  "Meta-Cognitive DB size",        group = group_learning, tooltip="DB 크기를 250으로 확장 권장")
+AOML_BETA                 = input.float(0.1,  "AOML Beta", minval = 0.01, maxval = 0.5, step = 0.01,    group = group_learning)
+LR_HALF_LIFE_T            = input.int(500,  "SGDR Half-Life (trades)",       group = group_learning)
+LR_T_MULT                 = input.int(2,    "SGDR Cycle ×",                  group = group_learning)
+USE_QRDQN           = input.bool(true, "EXP: DistRL Skeleton",          group = group_learning)
+USE_EPSILON_GREEDY        = input.bool(true, "ε-Greedy Exploration", group = group_learning, tooltip="장기간 거래가 없을 시, 낮은 확률로 탐험적 진입을 시도하여 Cold-Start 문제를 해결합니다.")
+CVAR_EPSILON       = input.bool(true, "Use CVaR ε-Greedy", group=group_learning)
+TRANSFER_SYMBOLS = input.string("BINANCE:BTCUSDT,BINANCE:ETHUSDT,BINANCE:SOLUSDT", "DistRL Symbols", group=group_learning)
+EPSILON_BAR_LIMIT         = input.int(30, "ε: Bar Limit", group = group_learning)
+EPSILON_PROB              = input.float(0.05, "ε: Probability", group = group_learning, minval=0.01, maxval=0.1, step=0.01)
+
+//▬▬▬ (D) RISK ▬▬▬
+group_risk                = "🛡️  Risk & Sizing Engine"
+ENTRY_CONFIDENCE_THRESHOLD = input.float(0.65, "Entry: Confidence ≥", minval = 0.5, maxval = 0.95, group = group_risk)
+META_VETO_THRESHOLD        = input.float(0.65, "Entry: Meta-Risk ≤",  minval = 0.5, maxval = 0.95, group = group_risk)
+RISK_CONTRACT_VALUE        = input.float(1.0,  "Risk: Contract Val",           group = group_risk, tooltip="계약의 명목 가치. 예: BTCUSDT 선물 1계약 = 1 * 현재 BTC 가격")
+VOLATILITY_TARGET_PCT      = input.float(1.5,  "Vol-Target %", minval = 0.5, maxval = 5.0, step = 0.1,  group = group_risk)
+USE_SORTINO_KELLY          = input.bool(true, "Kelly uses Sortino",           group = group_risk)
+FRACTIONAL_KELLY_KAPPA     = input.float(0.5, "Fractional Kelly κ", minval=0.1, maxval=1.0, step=0.05, group=group_risk, tooltip="켈리 베팅 비율에 적용할 축소 계수(0.1~1.0). 보수적 베팅을 위해 사용됩니다.")
+CVAR_CONSTRAINT_TAU        = input.float(5.0,  "CVaR-Kelly Tail %", minval = 2.0, maxval = 15.0, group = group_risk)
+DRAWDOWN_PHI             = input.float(3.0, "Drawdown φ", minval=0.1, maxval=5.0, step=0.1, group=group_risk)
+USE_DRAWDOWN_KELLY         = input.bool(true, "Drawdown-Capped Kelly",        group = group_risk)
+DRAWDOWN_TARGET_PCT        = input.float(20.0, "Max DD %", minval = 5.0, maxval = 50.0,          group = group_risk)
+
+//▬▬▬ (E) POSITION CTRL ▬▬▬
+group_position_control     = "🕹️  Position Control"
+max_long_qty_input         = input.float(50,   "Max Long Qty",                group = group_position_control)
+max_short_qty_input        = input.float(50,   "Max Short Qty",               group = group_position_control)
+contract_step_size_input   = input.float(0.1, "Contract Step", minval = 0.1, step = 0.1,        group = group_position_control)
+MIN_CONTRACT_QTY           = input.float(0.1,  "Min Contract Qty", group = group_position_control)
+POSITION_CLAMP_KAPPA       = input.float(15.0, "Position Clamp κ", minval=5, maxval=30, step=1.0, group=group_position_control)
+
+//▬▬▬ (F) EXIT ▬▬▬
+group_exit                 = "🚶 Adaptive Exit"
+DYNAMIC_RR_ENABLED         = input.bool(true, "Enable Dynamic R:R Target", group=group_exit, tooltip="활성화 시, 시장 변동성에 따라 초기 TP/SL 비율을 동적으로 조절합니다.")
+EXIT_META_CONFIDENCE       = input.float(0.95, "Exit: Meta-Risk ≥", group = group_exit)
+EXIT_VOL_MULT              = input.float(2.5,  "Climax: Vol ×",    group = group_exit)
+EXIT_RSI_THRESH            = input.float(85.0, "Climax: RSI",      group = group_exit)
+EXIT_FUNCTORIALITY_THRESH  = input.float(0.4,  "Predict-Collapse", group = group_exit)
+TIME_STOP_BARS             = input.int(96, "Time-Stop (Bars)", group=group_exit, tooltip="수익성이 없는 포지션을 N개의 봉 이후 강제 청산합니다. (0으로 비활성화)")
+
+HARD_STOP_PCT             = input.float(5.0,  "Hard Equity Stop %", minval=1.0, maxval=20.0, step=0.5, group=group_exit)
+
+
+
+//▬▬▬ (G) UI ▬▬▬
+group_visual               = "🎨 UI"
+show_dashboard             = input.bool(true,  "Show Dashboard",            group = group_visual)
+dashboard_position_input   = input.string("Bottom Right", "Dash Pos", options = ["Top Left","Top Right","Bottom Left","Bottom Right"], group = group_visual)
+
+//───────────────────────────────────────────────────────────────────────────────
+// 2. GLOBAL VARs  (헌장 제2조 & 제9조)
+//───────────────────────────────────────────────────────────────────────────────
+int   MIN_BARS_FOR_TRADING = 200
+const float MIN_BETA       = 0.02
+const float MIN_RISK_PER_TRADE = 0.002
+const float MAX_RISK_PER_TRADE = 0.02
+const int   WARMUP_BARS        = 1000
+const float WARMUP_LAMBDA      = 0.25
+const float WARMUP_KELLY_FRAC  = 0.2
+const float WARMUP_EPSILON     = 0.3
+const float COMMISSION_PCT     = 0.04
+
+var table main_dashboard             = na
+var float unified_signal_strength    = 0.0
+var array<float> latent_vector       = array.new_float(16, 0.0)
+var float lambda_risk_budget         = 1.0
+
+//–– Expert scores
+var float ahft_score                 = 0.0
+var float ofpi_score                 = 0.0
+var float hurst_score                = 0.0
+var float functoriality_score        = 0.0
+var float macro_trend_score          = 0.0
+var float meso_beta_score            = 0.0
+var float meso_momentum_score        = 0.0
+var float micro_volatility_score     = 0.0
+var float micro_leverage_score       = 0.0
+var float msgarch_score              = 0.0
+var int msgarch_regime_state       = 0
+var float goertzel_score             = 0.0
+
+//–– Adaptive weights (intrabar-persistent, all float)
+varip float ahft_weight              = 1.0
+varip float ofpi_weight              = 1.0
+varip float hurst_weight             = 1.0
+varip float functoriality_weight     = 1.0
+varip float macro_trend_weight       = 1.0
+varip float meso_beta_weight         = 1.0
+varip float meso_momentum_weight     = 1.0
+varip float micro_volatility_weight  = 1.0
+varip float micro_leverage_weight    = 1.0
+varip float msgarch_weight           = 1.0
+
+//–– Performance tracking
+varip array<float> trade_pnls        = array.new_float()
+varip array<float> down_devs         = array.new_float()
+varip array<float> equity_history    = array.new_float()
+varip float win_rate                 = 0.5
+varip float payoff_ratio             = 1.5
+varip float sortino_ratio            = 1.0
+varip float historical_var95         = 0.02
+varip float historical_cvar95        = 0.03
+varip float realized_volatility      = 0.0
+varip float rolling_mdd              = 0.0
+
+varip int wins                       = 0
+varip int losses                     = 0
+varip float win_sum                  = 0.0
+varip float loss_sum                 = 0.0
+
+//–– Function-mutable caches
+var float power_db_series            = na
+var float hurst_dfa_cached           = na
+varip float sgdr_curr_t0             = na
+varip float sgdr_next_reset          = na
+var array<float> goertzel_s1         = array.new_float(5, 0.)
+var array<float> goertzel_s2         = array.new_float(5, 0.)
+
+//–– DistRL storage
+int NUM_Q = 11
+var array<float> dist_arr            = array.new_float(NUM_Q, 0.)
+
+//–– DBs (flattened)
+int DNA_VECTOR_SIZE = 12, PARAMS_VECTOR_SIZE = 3, OPTIMAL_PATH_GENE_LENGTH = DNA_VECTOR_SIZE+PARAMS_VECTOR_SIZE
+var array<float> flat_optimal_path_db = array.new_float()
+var array<int>   optimal_path_gene_bars = array.new_int()
+var int optimal_db_head = 0
+
+int EXPERT_BEHAVIOR_VECTOR_SIZE = 12, META_COGNITIVE_GENE_LENGTH = EXPERT_BEHAVIOR_VECTOR_SIZE + 2
+var array<float> flat_expert_behavior_db = array.new_float()
+var array<int>   expert_behavior_gene_bars = array.new_int()
+var int expert_db_head = 0
+
+//–– Dynamic trade state
+var float dynamic_tsl_mult           = 2.0
+var float dynamic_tp_mult            = 3.0
+var float dynamic_exit_sensitivity   = 0.5
+var float entry_unified_strength     = 0.0
+var float initial_risk_budget        = 0.0
+var float last_trail_stop            = na
+var float last_trail_tp              = na
+var float hh_since_entry             = na
+var float ll_since_entry             = na
+var array<float> var_dna_for_trade   = array.new_float()
+var int var_entry_bar_index          = 0
+var int var_entry_time               = 0
+var float var_initial_atr            = 0.0
+
+//── Futures-data caches
+var float oi_val                     = na
+var float fr_val                     = na
+var float oi_delta_pct               = 0.0
+var float oi_zscore                  = 0.0
+
+//───────────────────────────────────────────────────────────────────────────────
+// 3. CORE CALCULATIONS (헌장 제1조)
+//───────────────────────────────────────────────────────────────────────────────
+is_new_bar_event = time != time[1]
+ct_count = strategy.closedtrades
+is_trade_closed_event = ct_count > strategy.closedtrades[1]
+is_entry_fill_event = strategy.opentrades > strategy.opentrades[1]
+is_in_trade_event = strategy.position_size != 0
+can_make_decision_event = bar_index > MIN_BARS_FOR_TRADING and is_new_bar_event and not is_in_trade_event
+
+//───────────────────────────────────────────────────────────────────────────────
+// 4. FUNCTIONS (헌장 제8조 & 제8조의2)
+//───────────────────────────────────────────────────────────────────────────────
+// ★★★ v37.9.2 PATCH: 보고서 제안에 따라 안전한 배열 접근자 추가 (P0) ★★★
+f_safe_array_get(arr, idx, def) =>
+    idx >= 0 and idx < array.size(arr) ? array.get(arr, idx) : def
+
+f_normalize(x) => 
+    nz(math.max(-1.0, math.min(1.0, x)))
+f_getTablePosition(p) => 
+    p=="Top Left"?position.top_left:p=="Top Right"?position.top_right:p=="Bottom Left"?position.bottom_left:position.bottom_right
+
+//–– Math helpers
+f_clamp(x, a, b) => 
+    math.max(a, math.min(b, x))
+f_tanh(x) => 
+    (math.exp(x)-math.exp(-x)) / (math.exp(x)+math.exp(-x))
+f_frac(x) => 
+    x - math.floor(x)
+
+//–– Array resize (custom, Pine5엔 array.resize 없음)
+f_resize(arr, n, fill) =>
+    if array.size(arr) < n
+        for _ = 0 to n - array.size(arr) - 1
+            array.push(arr, fill)
+    else
+        while array.size(arr) > n
+            array.pop(arr)
+    arr
+
+//–– Random index (pure Fn, 헌장 7조 준수)
+rand_idx(maxN) =>
+    seed = f_frac(math.sin(float(bar_index) * 12.9898 + float(time) * 6.28318) * 43758.5453)
+    int(math.floor(seed * maxN))
+
+//–– Statistical moments
+f_moment(src, len, o) =>
+    m = ta.sma(src, len)
+    acc = 0.0
+    for i = 0 to len - 1
+        acc += math.pow(nz(src[i]) - m, o)
+    acc / len
+f_skew(src, len) =>
+    denom = math.pow(ta.stdev(src, len), 3)
+    denom > 0 ? f_moment(src, len, 3) / denom : 0
+f_kurt(src, len) =>
+    denom = math.pow(ta.stdev(src, len), 4)
+    denom > 0 ? f_moment(src, len, 4) / denom : 0
+
+//–– Array stdev
+f_array_stdev(a) =>
+    m = array.avg(a)
+    var_sum = 0.0
+    for i = 0 to array.size(a) - 1
+        var_sum += math.pow(f_safe_array_get(a, i, m), 2)
+    array.size(a) > 1 ? math.sqrt(var_sum / (array.size(a) - 1)) : 0
+
+//–– Weight updater (AOML)
+f_update_weight(w, err, score, beta) => 
+    w * math.exp(f_clamp(-beta * err * score, -2, 2))
+
+//–– Latent→scalar (EWMA)
+f_latent_to_timeseries(vec) =>
+    ewma_sum = 0.0
+    weight_sum = 0.0
+    if array.size(vec) >= 4
+        ewma_sum += f_safe_array_get(vec, 0, 0.0) * 0.4
+        ewma_sum += f_safe_array_get(vec, 1, 0.0) * 0.3
+        ewma_sum += f_safe_array_get(vec, 2, 0.0) * 0.2
+        ewma_sum += f_safe_array_get(vec, 3, 0.0) * 0.1
+        weight_sum := 0.4 + 0.3 + 0.2 + 0.1
+    weight_sum > 0 ? ewma_sum / weight_sum : 0.0
+
+//–– Z-score normalizer
+f_zscore_normalize_array(src_array) =>
+    normalized = array.new_float(array.size(src_array), 0.0)
+    m = array.avg(src_array)
+    sd = f_array_stdev(src_array)
+    if sd > 0
+        for i = 0 to array.size(src_array) - 1
+            v = f_safe_array_get(src_array, i, m)
+            z = (v - m) / sd
+            array.set(normalized, i, f_normalize(z))
+    normalized
+
+//–– Cosine SGDR scheduler (pure)
+f_cosine_lr(beta_init, beta_min, trades, t0, t_mult, sg_t0_prev, sg_next_prev) =>
+    sg_t0_i = na(sg_t0_prev) ? t0 : sg_t0_prev
+    sg_nx_i = na(sg_next_prev) ? t0 : sg_next_prev
+    if trades >= sg_nx_i
+        sg_t0_i := sg_t0_i * t_mult
+        sg_nx_i := trades + sg_t0_i
+    cycle_pos = (trades % sg_t0_i) / sg_t0_i
+    lr = beta_min + 0.5 * (beta_init - beta_min) * (1 + math.cos(math.pi * cycle_pos))
+    array.from(lr, sg_t0_i, sg_nx_i)
+
+//–– Push-cap helper
+f_push_cap(arr, val, max_len) =>
+    if array.size(arr) >= max_len
+        array.shift(arr)
+    array.push(arr, val)
+
+f_patch_tst_encoder(src, len) =>
+    vec = array.new_float(16, 0.0)
+    if bar_index > len
+        atr_norm = ta.atr(len) / src
+        mfi_val = ta.mfi(close, 14) 
+        array.set(vec, 0, f_normalize((src - ta.sma(src, len)) / nz(ta.stdev(src, len), 1)))
+        array.set(vec, 1, f_normalize(ta.roc(src, 10) / 100))
+        array.set(vec, 2, f_normalize((ta.rsi(src, 14) - 50) / 50))
+        array.set(vec, 3, f_normalize(atr_norm - ta.sma(atr_norm, len)))
+        array.set(vec, 4, f_normalize(ta.mom(volume, 10) / ta.sma(volume, 50)))
+        array.set(vec, 5, f_normalize(ta.correlation(src, volume, 20)))
+        array.set(vec, 6, f_normalize(f_skew(src, len)))
+        array.set(vec, 7, f_normalize(f_kurt(src, len)))
+        array.set(vec, 8, f_normalize(ta.ema(src, 5) - ta.ema(src, 20)))
+        array.set(vec, 9, f_normalize(ta.ema(src, 20) - ta.ema(src, 60)))
+        array.set(vec, 10, f_normalize(ta.stdev(ta.roc(src, 1), 10)))
+        array.set(vec, 11, f_normalize(math.log(ta.highest(src, len)) - math.log(ta.lowest(src, len))))
+        array.set(vec, 12, f_normalize(ta.cci(src, 20) / 100))
+        array.set(vec, 13, f_normalize(mfi_val - 50))
+        array.set(vec, 14, f_normalize(ta.sma(src, 3) - ta.sma(src, 9)))
+        array.set(vec, 15, f_normalize(close - ta.vwap))
+    vec
+
+f_calculate_ahft_signal() => 
+    f_normalize(((close[1] - ta.sma(close, 50)[1]) / nz(ta.atr(14)[1], 1)) / 3)
+
+f_ofpi_t3(len, t3_len, t3_vf) =>
+    body_pos = (high - low) > 0 ? (close - low) / (high - low) : 0.5
+    net_vol = volume * (2 * body_pos - 1)
+    ofpi_raw = ta.sma(net_vol, len) / (ta.sma(volume, len) + 1e-9)
+    e1 = ta.ema(ofpi_raw, t3_len)
+    e2 = ta.ema(e1, t3_len)
+    e3 = ta.ema(e2, t3_len)
+    e4 = ta.ema(e3, t3_len)
+    e5 = ta.ema(e4, t3_len)
+    e6 = ta.ema(e5, t3_len)
+    c1 = -t3_vf * t3_vf * t3_vf
+    c2 = 3 * t3_vf * t3_vf + 3 * t3_vf * t3_vf * t3_vf
+    c3 = -6 * t3_vf * t3_vf - 3 * t3_vf - 3 * t3_vf * t3_vf * t3_vf
+    c4 = 1 + 3 * t3_vf + t3_vf * t3_vf * t3_vf + 3 * t3_vf * t3_vf
+    f_normalize((c1 * e6 + c2 * e5 + c3 * e4 + c4 * e3) * 5)
+
+f_functoriality(len1, len2, len3) =>
+    sma1 = ta.sma(close, len1)
+    sma2 = ta.sma(close, len2)
+    sma3 = ta.sma(close, len3)
+    f12 = sma1 != 0 ? sma2 / sma1 : 1
+    f23 = sma2 != 0 ? sma3 / sma2 : 1
+    f13 = sma1 != 0 ? sma3 / sma1 : 1
+    1 - math.min(f13 != 0 ? math.abs(f12 * f23 - f13) / math.abs(f13) : 0 * 10, 1)
+
+f_hurst_rs(src, length) =>
+    y = src[1] - ta.sma(src[1], length)
+    ycum = ta.cum(y)
+    prev = nz(ycum[length], 0)
+    y_cumsum_rolling = ycum - prev
+    r = ta.highest(y_cumsum_rolling, length) - ta.lowest(y_cumsum_rolling, length)
+    s = ta.stdev(src[1], length)
+    rs = s > 0 ? r / s : 0
+    H = rs > 0 ? math.log(rs) / math.log(length / 2) : 0.5
+    f_normalize((H - 0.5) * 2)
+
+f_hurst_dfa(src, scales_str, h_dfa_cached) =>
+    h_dfa_new = h_dfa_cached
+    if bar_index % 4 == 0
+        scales = array.new_int()
+        scales_str_arr = str.split(scales_str, ",")
+        for s in scales_str_arr
+            array.push(scales, int(str.tonumber(s)))
+        log_scales = array.new_float()
+        log_fluctuations = array.new_float()
+        var array<float> segment_ycum_buffer = array.new_float()
+        for scale in scales
+            if bar_index > scale
+                segment_ycum_buffer := f_resize(segment_ycum_buffer, scale, 0.0)
+                detrend_len = math.min(200, math.max(20, scale * 4))
+                y = src - ta.sma(src, detrend_len)
+                y_cum = ta.cum(y)
+                for j = 0 to scale - 1
+                    array.set(segment_ycum_buffer, j, nz(y_cum[scale - 1 - j], 0.0))
+                mean_x = 0.0
+                mean_y = 0.0
+                var_x = 0.0
+                cov_xy = 0.0
+                for j = 0 to scale - 1
+                    x = float(j)
+                    y_val = f_safe_array_get(segment_ycum_buffer, j, 0.0)
+                    dx = x - mean_x
+                    dy = y_val - mean_y
+                    mean_x += dx / (j + 1)
+                    mean_y += dy / (j + 1)
+                    var_x += dx * (x - mean_x)
+                    cov_xy += dx * (y_val - mean_y)
+                slope = var_x > 0 ? cov_xy / var_x : 0
+                intercept = mean_y - slope * mean_x
+                rss = 0.0
+                for j = 0 to scale - 1
+                    rss += math.pow(f_safe_array_get(segment_ycum_buffer, j, 0.0) - (slope * j + intercept), 2)
+                fluctuation = math.sqrt(rss / scale)
+                if fluctuation > 0
+                    array.push(log_scales, math.log(scale))
+                    array.push(log_fluctuations, math.log(fluctuation))
+        H = 0.5
+        if array.size(log_scales) > 1
+            sum_x = array.sum(log_scales)
+            sum_y = array.sum(log_fluctuations)
+            sum_xy = 0.0
+            sum_x2 = 0.0
+            n = array.size(log_scales)
+            for i = 0 to n - 1
+                sum_xy += f_safe_array_get(log_scales, i, 0.0) * f_safe_array_get(log_fluctuations, i, 0.0)
+                sum_x2 += math.pow(f_safe_array_get(log_scales, i, 0.0), 2)
+            denominator = n * sum_x2 - sum_x * sum_x
+            if denominator != 0
+                H := (n * sum_xy - sum_x * sum_y) / denominator
+        h_dfa_new := (H - 0.5) * 2
+    array.from(f_normalize(nz(h_dfa_new, 0.0)), h_dfa_new)
+
+
+f_update_goertzel_bank(src, periods) =>
+    max_power = 0.0
+    for i = 0 to array.size(periods) - 1
+        p = f_safe_array_get(periods, i, 1.0)
+        w = 2 * math.pi / p
+        coeff = 2 * math.cos(w)
+        s1_prev = f_safe_array_get(goertzel_s1, i, 0.0)
+        s2_prev = f_safe_array_get(goertzel_s2, i, 0.0)
+        s0 = src + coeff * s1_prev - s2_prev
+        array.set(goertzel_s2, i, s1_prev)
+        array.set(goertzel_s1, i, s0)
+        power = math.pow(s0, 2) + math.pow(s1_prev, 2) - coeff * s0 * s1_prev
+        max_power := math.max(max_power, power)
+    p_db_series = 10 * math.log10(max_power + 1e-9)
+    rankLen = math.max(250, int(bar_index / 4))
+    rank_norm = bar_index < rankLen ? 0.0 : ta.percentrank(p_db_series, rankLen) * 2 - 1
+    abs_power_norm = f_normalize(p_db_series / 50)
+    blended_norm = rank_norm * 0.7 + abs_power_norm * 0.3
+    array.from(blended_norm, p_db_series)
+
+f_msgarch_regime_proxy(vol_len, trend_len, asym_coef) =>
+    vol_of_vol = ta.stdev(ta.tr, vol_len) / nz(ta.ema(ta.tr, vol_len), 1)
+    vol_persistence_raw = ta.percentrank(vol_of_vol, 200) - 0.5
+    vol_persistence = f_clamp(vol_persistence_raw, -2, 2)
+    trend_persistence = ta.correlation(close, ta.ema(close, trend_len), trend_len)
+    asymmetric_penalty = 1 - math.sign(trend_persistence) * asym_coef
+    regime_score = trend_persistence * math.exp(-2.0 * math.abs(vol_persistence) * asymmetric_penalty)
+    regime_state = vol_persistence_raw > 0.5 ? 1 : 0
+    array.from(f_normalize(regime_score), regime_state)
+
+f_calculate_beta_zscore(src, benchmark_src, len) =>
+    ret_src = src[1] == 0 ? 0.0 : src / src[1] - 1
+    ret_bench = benchmark_src[1] == 0 ? 0.0 : benchmark_src / benchmark_src[1] - 1
+    stdev_src = ta.stdev(ret_src, len)
+    stdev_bench = ta.stdev(ret_bench, len)
+    corr = ta.correlation(ret_src, ret_bench, len)
+    beta = stdev_bench > 0 ? corr * (stdev_src / stdev_bench) : 0
+    beta_sma = ta.sma(beta, len)
+    beta_stdev = ta.stdev(beta, len)
+    beta_zscore = beta_stdev > 0 ? (beta - beta_sma) / beta_stdev : 0
+    beta_zscore
+
+f_meso_momentum(src, tf, lookback) =>
+    mtf_roc = request.security(syminfo.tickerid, tf, ta.roc(src, lookback), lookahead = barmerge.lookahead_off)
+    f_normalize(mtf_roc / 100)
+
+f_adaptive_hurst_ensemble(rs_h, dfa_h, dft_h) => 
+    f_normalize(0.3 * rs_h + 0.4 * dfa_h + 0.3 * dft_h)
+
+f_get_mtf_trend(tf, latent_src_scalar) =>
+    htf_super_trend = request.security(syminfo.tickerid, tf, (close - ta.ema(close, 200)) / nz(ta.atr(50), 1), lookahead = barmerge.lookahead_off)
+    htf_latent_scalar = request.security(syminfo.tickerid, tf, latent_src_scalar, lookahead = barmerge.lookahead_off)
+    f_normalize(0.5 * f_normalize(ta.correlation(latent_src_scalar, htf_latent_scalar, 20)) + 0.5 * htf_super_trend)
+
+f_get_mtf_volatility(tf) => 
+    f_normalize((request.security(syminfo.tickerid, tf, ta.atr(14) / close, lookahead = barmerge.lookahead_off) * 100) - 1)
+
+
+f_calculate_var_cvar(pnl_array, quantile) =>
+    var_result = 0.02
+    cvar_result = 0.03
+    if array.size(pnl_array) >= 20
+        sorted_pnls = array.copy(pnl_array)
+        array.sort(sorted_pnls)
+        var_index = int(math.round(array.size(sorted_pnls) * (1 - quantile)))
+        var_val = f_safe_array_get(sorted_pnls, var_index, 0.0)
+        var_result := -var_val / strategy.initial_capital
+        cvar_tail = array.slice(sorted_pnls, 0, var_index + 1)
+        cvar_result := -array.avg(cvar_tail) / strategy.initial_capital
+    array.from(var_result, cvar_result)
+
+f_create_holographic_vector() => 
+    array.from(GENE_VERSION, ahft_score, ofpi_score, hurst_score, functoriality_score, macro_trend_score, meso_beta_score, meso_momentum_score, micro_volatility_score, micro_leverage_score, msgarch_score, unified_signal_strength)
+
+f_create_expert_behavior_vector() =>
+    scores = array.from(ahft_score, ofpi_score, hurst_score, functoriality_score, macro_trend_score, meso_beta_score, meso_momentum_score, micro_volatility_score, micro_leverage_score, msgarch_score, unified_signal_strength)
+    vec = array.new_float(EXPERT_BEHAVIOR_VECTOR_SIZE, 0.0)
+    array.set(vec, 0, GENE_VERSION)
+    array.set(vec, 1, f_normalize(ta.change(unified_signal_strength, 3)))
+    array.set(vec, 2, f_normalize(f_array_stdev(scores)))
+    array.set(vec, 3, f_normalize(ta.correlation(ahft_score, ofpi_score, 10)))
+    array.set(vec, 4, hurst_score > 0 ? 1 : -1)
+    array.set(vec, 5, f_normalize(macro_trend_score - meso_beta_score))
+    array.set(vec, 6, f_normalize(ta.roc(functoriality_score, 3)))
+    array.set(vec, 7, micro_volatility_score > 0.5 ? 1 : -1)
+    array.set(vec, 8, f_normalize(ta.rsi(unified_signal_strength, 5) - 50))
+    array.set(vec, 9, f_normalize(ofpi_score - ta.sma(ofpi_score, 5)))
+    array.set(vec, 10, math.sign(unified_signal_strength) == math.sign(macro_trend_score) ? 1 : -1)
+    array.set(vec, 11, f_normalize(meso_momentum_score - meso_beta_score))
+    vec
+
+f_cosine_similarity(vec1, vec2) =>
+    dot_product = 0.0
+    mag1 = 0.0
+    mag2 = 0.0
+    for i = 0 to array.size(vec1) - 1
+        v1 = f_safe_array_get(vec1, i, 0.0)
+        v2 = f_safe_array_get(vec2, i, 0.0)
+        dot_product += v1 * v2
+        mag1 += math.pow(v1, 2)
+        mag2 += math.pow(v2, 2)
+    mag1 > 0 and mag2 > 0 ? dot_product / (math.sqrt(mag1) * math.sqrt(mag2)) : 0
+
+f_ann_lookup(current_vec, db_name) =>
+    db = db_name == "Strategist" ? flat_optimal_path_db : flat_expert_behavior_db
+    gene_len = db_name == "Strategist" ? OPTIMAL_PATH_GENE_LENGTH : META_COGNITIVE_GENE_LENGTH
+    num_genes = math.max(1, int(array.size(db) / gene_len))
+    k = num_genes <= 3 ? num_genes : math.max(3, int(math.round(math.log(num_genes))))
+    bar_db = db_name == "Strategist" ? optimal_path_gene_bars : expert_behavior_gene_bars
+    similarities = array.new_float()
+    indices = array.new_int()
+    k_neighbors_indices = array.new_int()
+    if num_genes > k
+        for i = 0 to num_genes - 1
+            db_head = db_name == "Strategist" ? optimal_db_head : expert_db_head
+            current_idx = (db_head + i) % num_genes
+            if array.size(bar_db) > current_idx and (bar_index - f_safe_array_get(bar_db, current_idx, bar_index)) > LEARNING_LOOKBACK
+                continue
+            start_index = current_idx * gene_len
+            if array.size(db) >= start_index + gene_len
+                gene_dna_raw = array.slice(db, start_index, start_index + DNA_VECTOR_SIZE)
+                gene_version = f_safe_array_get(gene_dna_raw, 0, 0.0)
+                current_dna_no_version = array.copy(current_vec)
+                array.shift(current_dna_no_version)
+                array.shift(gene_dna_raw)
+                if gene_version < 35.9
+                    array.push(gene_dna_raw, 0.0)
+                sim = f_cosine_similarity(current_dna_no_version, gene_dna_raw)
+                if sim > 0.8
+                    array.push(similarities, sim)
+                    array.push(indices, current_idx)
+        for i = 0 to math.min(k - 1, array.size(similarities) - 1)
+            if array.size(similarities) > 0
+                max_sim = array.max(similarities)
+                max_sim_idx = array.indexof(similarities, max_sim)
+                if max_sim_idx > -1
+                    array.push(k_neighbors_indices, f_safe_array_get(indices, max_sim_idx, -1))
+                    array.remove(similarities, max_sim_idx)
+                    array.remove(indices, max_sim_idx)
+        if array.size(k_neighbors_indices) < k
+            needed = k - array.size(k_neighbors_indices)
+            for i = 1 to needed
+                rand_index = rand_idx(num_genes)
+                if array.indexof(k_neighbors_indices, rand_index) == -1
+                    array.push(k_neighbors_indices, rand_index)
+    k_neighbors_indices
+
+
+f_synthesize_meta_parameters(neighbors_indices, flat_gene_db) =>
+    sum_tsl = 0.0
+    sum_tp = 0.0
+    sum_exit_sens = 0.0
+    total_weight = 0.0
+    if array.size(neighbors_indices) < 3
+        array.from(0.8, 2.0, 3.0, 0.5) 
+    else
+        for idx in neighbors_indices
+            start_index = idx * OPTIMAL_PATH_GENE_LENGTH
+            if array.size(flat_gene_db) >= start_index + OPTIMAL_PATH_GENE_LENGTH
+                gene_dna_raw = array.slice(flat_gene_db, start_index, start_index + DNA_VECTOR_SIZE)
+                gene_version = f_safe_array_get(gene_dna_raw, 0, 0.0)
+                current_dna_no_version = array.copy(f_create_holographic_vector())
+                array.shift(current_dna_no_version)
+                array.shift(gene_dna_raw)
+                if gene_version < 35.9
+                    array.push(gene_dna_raw, 0.0)
+                sim = f_cosine_similarity(current_dna_no_version, gene_dna_raw)
+                weight = math.pow(sim, 4)
+                sum_tsl += f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE, 2.0) * weight
+                sum_tp += f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE + 1, 3.0) * weight
+                sum_exit_sens += f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE + 2, 0.5) * weight
+                total_weight += weight
+        
+        total_weight := math.max(total_weight, 1e-9)
+        confidence = total_weight / array.size(neighbors_indices)
+        optimal_tsl = total_weight > 0 ? sum_tsl / total_weight : 2.0
+        optimal_tp = total_weight > 0 ? sum_tp / total_weight : 3.0
+        optimal_exit_sens = total_weight > 0 ? sum_exit_sens / total_weight : 0.5
+        array.from(confidence, optimal_tsl, optimal_tp, optimal_exit_sens)
+
+f_calculate_reversal_risk_score(neighbors_indices, gene_db) =>
+    expected_risk = 0.0
+    total_sim = 0.0
+    if array.size(neighbors_indices) > 0
+        for idx in neighbors_indices
+            start_index = idx * META_COGNITIVE_GENE_LENGTH
+            if array.size(gene_db) >= start_index + META_COGNITIVE_GENE_LENGTH
+                gene_dna_raw = array.slice(gene_db, start_index, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE)
+                gene_version = f_safe_array_get(gene_dna_raw, 0, 0.0)
+                current_dna_no_version = array.copy(f_create_expert_behavior_vector())
+                array.shift(current_dna_no_version)
+                array.shift(gene_dna_raw)
+                if gene_version < 35.9
+                    array.push(gene_dna_raw, 0.0)
+                sim = f_cosine_similarity(current_dna_no_version, gene_dna_raw)
+                if sim > 0
+                    reversal_outcome = f_safe_array_get(gene_db, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE, 0.0)
+                    reversal_severity = f_safe_array_get(gene_db, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, 0.0)
+                    if reversal_outcome > 0 and reversal_severity > 0.05
+                        expected_risk += sim * reversal_severity
+                        total_sim += sim
+    total_sim > 0 ? expected_risk / total_sim : 0.0
+
+f_calculate_cvar_constrained_kelly(w, p, cvar_hist, tau) =>
+    f = w - (1 - w) / p
+    if cvar_hist > tau and f > 0
+        lo_b = 0.0
+        hi_b = f
+        mid = f
+        for i = 0 to 5
+            mid := (lo_b + hi_b) / 2
+            cvar_approx = mid * cvar_hist / f
+            if cvar_approx > tau
+                hi_b := mid
+            else
+                lo_b := mid
+        f := lo_b
+    math.max(0, math.min(f, 1))
+
+f_update_qrdqn(rew) =>
+    idx = ct_count % NUM_Q
+    val = f_safe_array_get(dist_arr, idx, 0.0)
+    array.set(dist_arr, idx, val * 0.9 + 0.1 * rew)
+
+f_array_percentile(arr, pct) =>
+    if array.size(arr) == 0
+        0.0
+    else
+        sorted = array.copy(arr)
+        array.sort(sorted)
+        idx = int(math.floor(pct / 100 * (array.size(sorted) - 1)))
+        f_safe_array_get(sorted, idx, 0.0)
+
+f_qrdqn_lambda(qarr) =>
+    q_med = f_array_percentile(qarr, 50)
+    f_clamp(1 + q_med / 100, 0.3, 2.0)
+
+//───────────────────────────────────────────────────────────────────────────────
+// 5. EXECUTION (헌장 제1조, 제12조)
+//───────────────────────────────────────────────────────────────────────────────
+
+// ─── 5.1. Expert Score Calculation ───
+if is_new_bar_event
+    // Futures Data Acquisition
+    if syminfo.type == "futures"
+        oi_external = request.security(oi_symbol, timeframe.period, close, lookahead = barmerge.lookahead_off)
+        fr_external = request.security(fr_symbol, timeframe.period, close, lookahead = barmerge.lookahead_off)
+        oi_val := nz(oi_external, volume)
+        fr_val := nz(fr_external, 0.0)
+        oi_delta_pct_raw = (not na(oi_val[1]) and oi_val[1] != 0) ? (oi_val - oi_val[1]) / oi_val[1] : 0.0
+        oi_delta_pct := oi_delta_pct_raw
+        oi_sma = ta.sma(oi_delta_pct, 50)
+        oi_stdev = ta.stdev(oi_delta_pct, 50)
+        oi_zscore := (oi_stdev > 0) ? (oi_delta_pct - oi_sma) / oi_stdev : 0.0
+    else
+        oi_val := na
+        fr_val := na
+        oi_delta_pct := 0.0
+        oi_zscore := 0.0
+
+    // Expert Calculations
+    latent_vector_raw = f_patch_tst_encoder(close, PATCH_TST_LENGTH)
+    latent_vector := f_zscore_normalize_array(latent_vector_raw)
+    ahft_score := f_calculate_ahft_signal()
+    ofpi_score := f_ofpi_t3(ofpi_length_input, ofpi_t3_length_input, ofpi_t3_vfactor_input)
+    goertzel_return_array = f_update_goertzel_bank(close, array.from(8, 13, 21, 34, 55))
+    goertzel_score := f_safe_array_get(goertzel_return_array, 0, 0.0)
+    power_db_series := f_safe_array_get(goertzel_return_array, 1, 0.0)
+    rs_h_score = f_hurst_rs(close, HURST_RS_PERIOD)
+    dfa_return_array = f_hurst_dfa(close, HURST_DFA_SCALES, hurst_dfa_cached)
+    dfa_h_score = f_safe_array_get(dfa_return_array, 0, 0.0)
+    hurst_dfa_cached := f_safe_array_get(dfa_return_array, 1, 0.0)
+    hurst_score := f_adaptive_hurst_ensemble(rs_h_score, dfa_h_score, goertzel_score)
+    functoriality_score := (f_functoriality(functoriality_len1_input, functoriality_len2_input, functoriality_len3_input) - 0.5) * 2
+    macro_trend_score := f_get_mtf_trend(MACRO_TIMEFRAME, f_latent_to_timeseries(latent_vector))
+    if BETA_BENCHMARK_TICKER != ""
+        benchmark_close = request.security(BETA_BENCHMARK_TICKER, timeframe.period, close, lookahead = barmerge.lookahead_off)
+        if not na(benchmark_close)
+            raw_beta_z = f_calculate_beta_zscore(close, benchmark_close, BETA_LOOKBACK)
+            meso_beta_score := f_normalize(ta.ema(raw_beta_z, 3))
+        else
+            meso_beta_score := 0.0
+    else
+        meso_beta_score := 0.0
+    meso_momentum_score_raw = f_meso_momentum(close, MESO_TIMEFRAME, MESO_MOMENTUM_LOOKBACK)
+    proj_coeff = ta.correlation(meso_momentum_score_raw, macro_trend_score, 100)
+    ortho_momentum = meso_momentum_score_raw - proj_coeff * macro_trend_score
+    meso_momentum_score := f_normalize(ortho_momentum)
+    micro_volatility_score := f_get_mtf_volatility(MICRO_TIMEFRAME)
+    micro_leverage_score := syminfo.type == "futures" ? f_normalize(f_tanh(10 * oi_delta_pct)) : 0.0
+    msgarch_arr = f_msgarch_regime_proxy(MSGARCH_VOL_LEN, MSGARCH_TREND_LEN, asy_coef_input)
+    msgarch_score := f_safe_array_get(msgarch_arr, 0, 0.0)
+    msgarch_regime_state := int(f_safe_array_get(msgarch_arr, 1, 0.0))
+    total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight
+    safe_total_weight = math.max(total_weight, 1e-9)
+    weighted_sum = ahft_score * ahft_weight + ofpi_score * ofpi_weight + hurst_score * hurst_weight + functoriality_score * functoriality_weight + macro_trend_score * macro_trend_weight + meso_beta_score * meso_beta_weight + meso_momentum_score * meso_momentum_weight + micro_volatility_score * micro_volatility_weight + micro_leverage_score * micro_leverage_weight + msgarch_score * msgarch_weight
+    unified_signal_strength := safe_total_weight > 1e-8 ? weighted_sum / safe_total_weight : 0.0
+
+// ─── 5.2. Database Update Logic ───
+if is_new_bar_event and bar_index > MIN_BARS_FOR_TRADING
+    // ★★★ v37.9.2: 대표님의 v37.8 hotfix를 존중하여 고정 오프셋 로직 유지, nz()로 안전성 강화 ★★★
+    int pivot_high_bars = 5
+    if not na(ta.pivothigh(high, 5, 5))
+        behavior_vec = f_create_expert_behavior_vector()
+        severity = math.max(0, nz(ta.highest(high, 10)[pivot_high_bars], high) / nz(high[pivot_high_bars], high) - 1)
+        start_idx = expert_db_head * META_COGNITIVE_GENE_LENGTH
+        if array.size(flat_expert_behavior_db) < EXPERT_BEHAVIOR_DB_SIZE * META_COGNITIVE_GENE_LENGTH
+            for i = 0 to array.size(behavior_vec) - 1
+                array.push(flat_expert_behavior_db, f_safe_array_get(behavior_vec, i, 0.0))
+            array.push(flat_expert_behavior_db, nz(high[pivot_high_bars - 5], high) < nz(high[pivot_high_bars], high) ? 1.0 : -1.0)
+            array.push(flat_expert_behavior_db, severity)
+            array.push(expert_behavior_gene_bars, int(bar_index - pivot_high_bars))
+        else
+            for i = 0 to EXPERT_BEHAVIOR_VECTOR_SIZE - 1
+                array.set(flat_expert_behavior_db, start_idx + i, f_safe_array_get(behavior_vec, i, 0.0))
+            array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE, nz(high[pivot_high_bars - 5], high) < nz(high[pivot_high_bars], high) ? 1.0 : -1.0)
+            array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, severity)
+            array.set(expert_behavior_gene_bars, expert_db_head, int(bar_index - pivot_high_bars))
+        expert_db_head := (expert_db_head + 1) % EXPERT_BEHAVIOR_DB_SIZE
+        
+    int pivot_low_bars = 5
+    if not na(ta.pivotlow(low, 5, 5)) 
+        behavior_vec = f_create_expert_behavior_vector()
+        severity = math.max(0, nz(low[pivot_low_bars], low) / nz(ta.lowest(low, 10)[pivot_low_bars], low) - 1)
+        start_idx = expert_db_head * META_COGNITIVE_GENE_LENGTH
+        if array.size(flat_expert_behavior_db) < EXPERT_BEHAVIOR_DB_SIZE * META_COGNITIVE_GENE_LENGTH
+            for i = 0 to array.size(behavior_vec) - 1
+                array.push(flat_expert_behavior_db, f_safe_array_get(behavior_vec, i, 0.0))
+            array.push(flat_expert_behavior_db, nz(low[pivot_low_bars - 5], low) > nz(low[pivot_low_bars], low) ? 1.0 : -1.0)
+            array.push(flat_expert_behavior_db, severity)
+            array.push(expert_behavior_gene_bars, int(bar_index - pivot_low_bars))
+        else
+            for i = 0 to EXPERT_BEHAVIOR_VECTOR_SIZE - 1
+                array.set(flat_expert_behavior_db, start_idx + i, f_safe_array_get(behavior_vec, i, 0.0))
+            array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE, nz(low[pivot_low_bars - 5], low) > nz(low[pivot_low_bars], low) ? 1.0 : -1.0)
+            array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, severity)
+            array.set(expert_behavior_gene_bars, expert_db_head, int(bar_index - pivot_low_bars))
+        expert_db_head := (expert_db_head + 1) % EXPERT_BEHAVIOR_DB_SIZE
+
+
+// ─── 5.3. Entry Logic ───
+if can_make_decision_event
+    stdev_unified_signal = ta.stdev(unified_signal_strength, 100)
+    adaptive_entry_sig_threshold = math.max(0.05, 0.35 * stdev_unified_signal)
+
+    current_dna = f_create_holographic_vector()
+    k_neighbors_strat = f_ann_lookup(current_dna, "Strategist")
+    synthesis_results = f_synthesize_meta_parameters(k_neighbors_strat, flat_optimal_path_db)
+    base_confidence = f_safe_array_get(synthesis_results, 0, 0.0)
+    is_opportunity_valid = (math.abs(unified_signal_strength) > adaptive_entry_sig_threshold) and (base_confidence > ENTRY_CONFIDENCE_THRESHOLD)
+
+    price_gap = math.abs(open - close[1])
+    if session.isfirstbar and price_gap > 0.8 * ta.atr(14)
+        is_opportunity_valid := false
+
+    
+    bars_since_last_trade = ta.barssince(is_trade_closed_event)
+    recent_no_trade = nz(bars_since_last_trade)
+    is_exploration_time = USE_EPSILON_GREEDY and recent_no_trade > EPSILON_BAR_LIMIT
+    
+    rand_val = math.random(0.0, 1.0)
+    eps_prob_dyn = math.min(0.30, EPSILON_PROB * recent_no_trade / 50.0)
+    if CVAR_EPSILON
+        eps_prob_dyn := eps_prob_dyn * (historical_cvar95 / (historical_var95 + 1e-9))
+    if bar_index < WARMUP_BARS
+        eps_prob_dyn := WARMUP_EPSILON
+    is_exploration_triggered = is_exploration_time and rand_val < eps_prob_dyn and math.abs(unified_signal_strength) < adaptive_entry_sig_threshold / 2
+
+    if is_opportunity_valid or is_exploration_triggered
+        current_expert_behavior = f_create_expert_behavior_vector()
+        k_neighbors_meta = f_ann_lookup(current_expert_behavior, "MetaCognitive")
+        reversal_risk_score = 0.0
+        if array.size(k_neighbors_meta) > 0
+            reversal_risk_score := f_calculate_reversal_risk_score(k_neighbors_meta, flat_expert_behavior_db)
+        if reversal_risk_score < META_VETO_THRESHOLD
+            dynamic_tsl_mult := f_safe_array_get(synthesis_results, 1, 2.0)
+            dynamic_tp_mult := f_safe_array_get(synthesis_results, 2, 3.0)
+            dynamic_exit_sensitivity := f_safe_array_get(synthesis_results, 3, 0.5)
+            eff_payoff = USE_SORTINO_KELLY ? sortino_ratio : payoff_ratio
+            base_kappa = FRACTIONAL_KELLY_KAPPA * math.exp(-rolling_mdd * DRAWDOWN_PHI)
+            f_star = f_calculate_cvar_constrained_kelly(win_rate, eff_payoff, historical_cvar95, CVAR_CONSTRAINT_TAU / 100)
+            kelly_frac = f_star > 0 ? math.max(0.1, math.min(1.0, f_star)) * base_kappa : 0.1
+            if bar_index < WARMUP_BARS
+                kelly_frac := WARMUP_KELLY_FRAC
+            if USE_DRAWDOWN_KELLY and rolling_mdd > 0
+                kelly_frac := kelly_frac * math.min(1.0, (DRAWDOWN_TARGET_PCT / 100) / math.max(rolling_mdd, 1e-6))
+
+            if bar_index < WARMUP_BARS or rolling_mdd > 0.10
+                kelly_frac := math.min(kelly_frac, 0.25)
+            
+            atr_now = ta.atr(14)
+            atr_mean = ta.sma(atr_now, 100)
+            atr_std = ta.stdev(atr_now, 100)
+            atr_z = atr_std > 0 ? (atr_now - atr_mean) / atr_std : 0.0
+
+
+            loc_vol_pct = ta.ema(ta.tr, 10) / close
+            risk_per_unit = math.max(1e-9, atr_now * RISK_CONTRACT_VALUE)
+
+            target_risk_raw = (strategy.equity * (VOLATILITY_TARGET_PCT / 100)) * kelly_frac
+            target_risk_per_trade = math.min(strategy.equity * MAX_RISK_PER_TRADE, math.max(strategy.equity * MIN_RISK_PER_TRADE, target_risk_raw))
+            cvar_proxy = historical_var95 > 0 ? historical_cvar95 / historical_var95 : 1.0
+            gamma = 5 * (1 + f_normalize(math.log(cvar_proxy + 1e-9)))
+            lambda_raw = math.exp(-rolling_mdd * gamma) * f_normalize(functoriality_score)
+            lambda_smoothed = ta.ema(lambda_raw, 20)
+            min_lim = msgarch_regime_state == 1 ? 0.3 : 0.05
+            max_lim = msgarch_regime_state == 1 ? 2.0 : 1.2
+            lambda_risk_budget := f_clamp(lambda_smoothed, min_lim, max_lim)
+            if bar_index < WARMUP_BARS
+                lambda_risk_budget := WARMUP_LAMBDA
+            if USE_QRDQN
+                lambda_risk_budget := lambda_risk_budget * f_qrdqn_lambda(dist_arr)
+            if atr_z > 2
+                lambda_risk_budget := lambda_risk_budget * 0.5
+                dynamic_tsl_mult *= 0.7
+
+            kelly_size = risk_per_unit > 0 ? target_risk_per_trade / risk_per_unit : 0
+            hist_ok_cvar = not na(historical_cvar95)
+            ema_cvar = ta.ema(hist_ok_cvar ? historical_cvar95 : 0.0, 100)
+            stdev_cvar = ta.stdev(hist_ok_cvar ? historical_cvar95 : 0.0, 100)
+            cvar_rank = stdev_cvar > 0 ? f_normalize((historical_cvar95 - ema_cvar) / stdev_cvar) : 0.0
+            base_rng = nz(ta.atr(14), ta.tr)
+            market_impact_score = syminfo.type == "futures" ? f_normalize(ta.sma(volume, 5) / nz(ta.sma(ta.tr, 20), 1)) : f_normalize((high - low) / base_rng)
+            raw_floor = 0.5 * (1 - cvar_rank) + 0.5 * market_impact_score
+            min_lambda_floor = math.max(0.15, math.min(0.95, raw_floor))
+
+            vol_rank = ta.percentrank(loc_vol_pct, 100)
+            clamp_kappa = 5 + 10 * math.exp(-vol_rank)
+            pos_size_unclamped = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
+            pos_size = pos_size_unclamped / (1 + pos_size_unclamped / clamp_kappa)
+
+            max_qty_limit = unified_signal_strength > 0 ? max_long_qty_input : max_short_qty_input
+            capped_size = math.min(pos_size, max_qty_limit)
+            step = contract_step_size_input
+            rounded_size = step > 0 ? math.round(capped_size / step) * step : capped_size
+            final_size = capped_size
+            if step > 0
+                final_size := math.max(step, math.min(rounded_size, max_qty_limit))
+
+            expected_gain = atr_now * dynamic_tp_mult
+            commission_thresh = ta.tr * (COMMISSION_PCT / 100) * 2
+            if expected_gain < commission_thresh and not is_exploration_triggered
+                final_size := 0
+            if is_exploration_triggered
+                final_size := MIN_CONTRACT_QTY 
+            
+            if final_size < MIN_CONTRACT_QTY
+                final_size := 0
+            
+            long_entry_triggered = final_size > 0 and unified_signal_strength > 0
+            short_entry_triggered = final_size > 0 and unified_signal_strength < 0
+            
+            strategy.entry("Long", strategy.long, qty=final_size, when=long_entry_triggered)
+            strategy.entry("Short", strategy.short, qty=final_size, when=short_entry_triggered)
+
+
+
+// ─── 5.4. In-Trade Management ───
+if is_entry_fill_event
+    realized_volatility := ta.ema(ta.tr, 10)
+    vol_regime = ta.percentrank(realized_volatility / ta.atr(100), 100)
+    initial_tsl_mult = math.max(1.2, 1.2 + vol_regime * 0.3)
+    initial_tp_mult = math.max(2.0, 2.0 + vol_regime)
+
+    initial_risk_budget = realized_volatility * initial_tsl_mult
+
+    hard_stop_dist = (strategy.equity * (HARD_STOP_PCT / 100)) / math.max(math.abs(strategy.position_size), 1e-6)
+    risk_dist = math.min(initial_risk_budget, hard_stop_dist)
+    initial_sl_price = strategy.position_size > 0 ? close - risk_dist : close + risk_dist
+
+    last_trail_stop := initial_sl_price
+    hh_since_entry := high[1]
+    ll_since_entry := low[1]
+    initial_tp_price = strategy.position_size > 0 ? close + realized_volatility * initial_tp_mult : close - realized_volatility * initial_tp_mult
+    last_trail_tp := initial_tp_price
+    strategy.exit("SL/TP", from_entry = strategy.position_size > 0 ? "Long" : "Short", stop = initial_sl_price, limit = initial_tp_price)
+
+    hard_stop_price = strategy.position_size > 0 ? strategy.position_avg_price - hard_stop_dist : strategy.position_avg_price + hard_stop_dist
+    strategy.exit("HardSL", from_entry = strategy.position_size > 0 ? "Long" : "Short", stop = hard_stop_price)
+
+
+    var_dna_for_trade := f_create_holographic_vector()
+    var_entry_bar_index := bar_index
+    var_entry_time := time
+    var_initial_atr := ta.atr(14)[1]
+
+if is_in_trade_event and barstate.isconfirmed
+    exit_now = false
+    exit_comment = ""
+    if syminfo.type == "futures"
+        sentinel_score = 0.0
+        funding_weight = 0.0
+        funding_rate_available = not na(fr_val)
+        if funding_rate_available and math.abs(fr_val) > 0.001
+            funding_weight := 1.0
+        if not na(oi_val)
+            sentinel_score := funding_rate_available ? (math.abs(oi_zscore) * 0.7 + funding_weight * 0.3) : math.abs(oi_zscore)
+        if sentinel_score > 2.5
+            exit_now := true
+            exit_comment := "OI/Funding Spike Exit"
+    if not exit_now
+        current_expert_behavior = f_create_expert_behavior_vector()
+        k_neighbors_meta_exit = f_ann_lookup(current_expert_behavior, "MetaCognitive")
+        reversal_risk_score_exit = f_calculate_reversal_risk_score(k_neighbors_meta_exit, flat_expert_behavior_db)
+        if reversal_risk_score_exit > EXIT_META_CONFIDENCE
+            exit_now := true
+            exit_comment := "Meta-Cognitive Exit"
+    if not exit_now
+        atr_val = ta.atr(14)
+        is_vv_climax = volume > ta.sma(volume, 20) * EXIT_VOL_MULT and (strategy.position_size > 0 ? close > ta.sma(close, 20) + (atr_val * dynamic_tp_mult) : close < ta.sma(close, 20) - (atr_val * dynamic_tp_mult))
+        is_rsi_climax = (strategy.position_size > 0 and ta.rsi(close, 14) > EXIT_RSI_THRESH) or (strategy.position_size < 0 and ta.rsi(close, 14) < (100 - EXIT_RSI_THRESH))
+        if is_vv_climax or is_rsi_climax
+            exit_now := true
+            exit_comment := "Climax Exit"
+    if not exit_now and functoriality_score < EXIT_FUNCTORIALITY_THRESH
+        exit_now := true
+        exit_comment := "Predictability Collapse"
+    if not exit_now
+        timeInTradeDays = math.max(1.0, float(time - var_entry_time)) / 86400000.0
+        pnl_per_unit_risk = (strategy.openprofit / strategy.equity) / (realized_volatility / close + 1e-9)
+        ex_ante_sharpe = pnl_per_unit_risk / math.sqrt(timeInTradeDays)
+        dynamic_sharpe_target = 0.05 + 0.1 * (1 - win_rate)
+        if ex_ante_sharpe < dynamic_sharpe_target and strategy.openprofit > 0
+            exit_now := true
+            exit_comment := "Dynamic Sharpe Exit"
+    
+    if not exit_now and TIME_STOP_BARS > 0
+        if strategy.opentrades > 0 and (bar_index - strategy.opentrades.entry_bar_index(0)) > TIME_STOP_BARS
+            if strategy.openprofit <= 0
+                exit_now := true
+                exit_comment := "Time-Stop Exit"
+
+    strategy.close_all(when=exit_now, comment=exit_comment)
+
+    if not exit_now
+        realized_volatility := ta.ema(ta.tr, 10)
+        tsl_mult = dynamic_tsl_mult
+        tp_mult = dynamic_tp_mult
+        vol_regime = ta.percentrank(realized_volatility / ta.atr(100), 100)
+        if vol_regime > 0.95
+            tsl_mult *= 0.6
+            tp_mult *= 0.9
+        new_tsl = last_trail_stop
+        if strategy.position_size > 0
+            hh_since_entry := math.max(hh_since_entry, high[1])
+            new_tsl := math.max(last_trail_stop, hh_since_entry - (realized_volatility * tsl_mult))
+        else
+            ll_since_entry := math.min(ll_since_entry, low[1])
+            new_tsl := math.min(last_trail_stop, ll_since_entry + (realized_volatility * tsl_mult))
+        new_tp = strategy.position_size > 0 ? strategy.opentrades.entry_price(0) + var_initial_atr * tp_mult : strategy.opentrades.entry_price(0) - var_initial_atr * tp_mult
+        if new_tsl != last_trail_stop or new_tp != last_trail_tp
+            strategy.exit("SL/TP Update", stop = new_tsl, limit = new_tp)
+            last_trail_stop := new_tsl
+            last_trail_tp := new_tp
+
+
+
+// ─── 5.5. Learning Loop ───
+if is_trade_closed_event
+    last_pnl = strategy.closedtrades.profit(ct_count - 1)
+    f_push_cap(trade_pnls, last_pnl, 100)
+    if last_pnl < 0
+        f_push_cap(down_devs, last_pnl * last_pnl, 100)
+    f_push_cap(equity_history, strategy.equity, 60)
+    peak_equity = array.max(equity_history)
+    rolling_mdd := (peak_equity - strategy.equity) / math.max(peak_equity, 1e-6)
+   
+    if last_pnl > 0
+        wins += 1
+        win_sum += last_pnl
+    else if last_pnl < 0
+        losses += 1
+        loss_sum += math.abs(last_pnl)
+
+    win_rate := (wins + losses) > 0 ? wins / float(wins + losses) : 0.5
+    avg_win = wins > 0 ? win_sum / wins : 0
+    avg_loss = losses > 0 ? loss_sum / losses : 0
+    payoff_ratio := avg_loss > 0 ? avg_win / avg_loss : 1.0
+    downside_dev = array.size(down_devs) > 0 ? math.sqrt(array.sum(down_devs) / array.size(down_devs)) : 0
+    avg_ret = array.size(trade_pnls) > 0 ? array.avg(trade_pnls) : 0
+    sortino_ratio := downside_dev > 0 ? avg_ret / downside_dev : 1.0
+    var_cvar_array = f_calculate_var_cvar(trade_pnls, 0.95)
+    historical_var95 := f_safe_array_get(var_cvar_array, 0, 0.02)
+    historical_cvar95 := f_safe_array_get(var_cvar_array, 1, 0.03)
+    last_trade_size = strategy.closedtrades.size(ct_count - 1)
+    last_trade_entry_price = strategy.closedtrades.entry_price(ct_count - 1)
+    var_epsilon = math.max(historical_var95, 1e-9)
+    trade_value_at_risk = last_trade_size * last_trade_entry_price * var_epsilon
+    hist_ok_learn = not na(historical_cvar95)
+    ema_cvar_learn = ta.ema(hist_ok_learn ? historical_cvar95 : 0.0, 25)
+    stdev_cvar_learn = ta.stdev(hist_ok_learn ? historical_cvar95 : 0.0, 25)
+    cvar_rank_learning = stdev_cvar_learn > 0 ? f_normalize((historical_cvar95 - ema_cvar_learn) / stdev_cvar_learn) : 0.0
+    err = trade_value_at_risk > 0 ? (last_pnl / trade_value_at_risk) * (1 - cvar_rank_learning) : 0
+    err_scale = array.size(trade_pnls) > 10 and nz(array.median(trade_pnls)) != 0 ? 10 / math.abs(array.median(trade_pnls)) : 10
+    err := err * err_scale
+    lr_array = f_cosine_lr(AOML_BETA, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
+    adaptive_beta = f_safe_array_get(lr_array, 0, MIN_BETA)
+    sgdr_curr_t0 := f_safe_array_get(lr_array, 1, sgdr_curr_t0)
+    sgdr_next_reset := f_safe_array_get(lr_array, 2, sgdr_next_reset)
+    ahft_weight := f_update_weight(ahft_weight, err, ahft_score[1], adaptive_beta)
+    ofpi_weight := f_update_weight(ofpi_weight, err, ofpi_score[1], adaptive_beta)
+    hurst_weight := f_update_weight(hurst_weight, err, hurst_score[1], adaptive_beta)
+    functoriality_weight := f_update_weight(functoriality_weight, err, functoriality_score[1], adaptive_beta)
+    macro_trend_weight := f_update_weight(macro_trend_weight, err, macro_trend_score[1], adaptive_beta)
+    meso_beta_weight := f_update_weight(meso_beta_weight, err, meso_beta_score[1], adaptive_beta)
+    meso_momentum_weight := f_update_weight(meso_momentum_weight, err, meso_momentum_score[1], adaptive_beta)
+    micro_volatility_weight := f_update_weight(micro_volatility_weight, err, micro_volatility_score[1], adaptive_beta)
+    micro_leverage_weight := f_update_weight(micro_leverage_weight, err, micro_leverage_score[1], adaptive_beta)
+    msgarch_weight := f_update_weight(msgarch_weight, err, msgarch_score[1], adaptive_beta)
+    pre_norm_total = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight
+    if pre_norm_total > 0
+        ahft_weight /= pre_norm_total, ofpi_weight /= pre_norm_total, hurst_weight /= pre_norm_total, functoriality_weight /= pre_norm_total, macro_trend_weight /= pre_norm_total, meso_beta_weight /= pre_norm_total, meso_momentum_weight /= pre_norm_total, micro_volatility_weight /= pre_norm_total, micro_leverage_weight /= pre_norm_total, msgarch_weight /= pre_norm_total
+    functoriality_weight := math.max(0.05, functoriality_weight)
+    macro_trend_weight := math.max(0.05, macro_trend_weight)
+    final_total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight
+    if final_total_weight > 0
+        ahft_weight /= final_total_weight, ofpi_weight /= final_total_weight, hurst_weight /= final_total_weight, functoriality_weight /= final_total_weight, macro_trend_weight /= final_total_weight, meso_beta_weight /= final_total_weight, meso_momentum_weight /= final_total_weight, micro_volatility_weight /= final_total_weight, micro_leverage_weight /= final_total_weight, msgarch_weight /= final_total_weight
+    if not na(var_dna_for_trade) and array.size(var_dna_for_trade) > 0
+        trade_duration = bar_index - var_entry_bar_index
+        safe_trade_duration = math.min(trade_duration, 9999)
+        is_long = strategy.closedtrades.size(ct_count - 1) > 0
+        entry_price = strategy.closedtrades.entry_price(ct_count - 1)
+        optimal_tp_mult = 2.0
+        if trade_duration > 0
+            if is_long
+                highest_high = ta.highest(high, safe_trade_duration)[1]
+                potential_pnl = highest_high - entry_price
+                optimal_tp_mult := potential_pnl > 0 and var_initial_atr > 0 ? potential_pnl / var_initial_atr : 2.0
+            else
+                lowest_low = ta.lowest(low, safe_trade_duration)[1]
+                potential_pnl = entry_price - lowest_low
+                optimal_tp_mult := potential_pnl > 0 and var_initial_atr > 0 ? potential_pnl / var_initial_atr : 2.0
+        optimal_tsl_mult = math.max(1.0, optimal_tp_mult * 0.5)
+        optimal_exit_sensitivity = math.max(0.3, 1.0 - functoriality_score)
+        optimal_path_gene = array.copy(var_dna_for_trade)
+        array.push(optimal_path_gene, optimal_tsl_mult)
+        array.push(optimal_path_gene, optimal_tp_mult)
+        array.push(optimal_path_gene, optimal_exit_sensitivity)
+        start_idx = optimal_db_head * OPTIMAL_PATH_GENE_LENGTH
+        if array.size(flat_optimal_path_db) < OPTIMAL_PATH_DB_SIZE * OPTIMAL_PATH_GENE_LENGTH
+            for i = 0 to array.size(optimal_path_gene) - 1
+                array.push(flat_optimal_path_db, f_safe_array_get(optimal_path_gene, i, 0.0))
+            array.push(optimal_path_gene_bars, var_entry_bar_index)
+        else
+            for i = 0 to OPTIMAL_PATH_GENE_LENGTH - 1
+                array.set(flat_optimal_path_db, start_idx + i, f_safe_array_get(optimal_path_gene, i, 0.0))
+            array.set(optimal_path_gene_bars, optimal_db_head, var_entry_bar_index)
+        optimal_db_head := (optimal_db_head + 1) % OPTIMAL_PATH_DB_SIZE
+        var_dna_for_trade := na
+    if USE_QRDQN
+        f_update_qrdqn(last_pnl)
+
+//───────────────────────────────────────────────────────────────────────────────
+// 6. VISUALIZATION
+//───────────────────────────────────────────────────────────────────────────────
+if show_dashboard and barstate.islastconfirmedhistory
+    if not na(main_dashboard)
+        table.delete(main_dashboard)
+    dash_pos = f_getTablePosition(dashboard_position_input)
+    main_dashboard := table.new(dash_pos, 2, 15, border_width = 1, bgcolor = color.new(color.black, 75))
+    table.merge_cells(main_dashboard, 0, 0, 1, 0)
+    table.cell(main_dashboard, 0, 0, "✅ AHFT-HPH-" + CODE_VERSION, bgcolor = color.new(color.maroon, 50), text_color = color.white)
+    table.cell(main_dashboard, 0, 1, "Unified Strength", text_color = color.gray)
+    table.cell(main_dashboard, 1, 1, str.tostring(unified_signal_strength, "#.##"))
+    table.cell(main_dashboard, 0, 2, "Win Rate/Payoff", text_color = color.gray)
+    table.cell(main_dashboard, 1, 2, str.tostring(win_rate * 100, "#.#") + "% / " + str.tostring(payoff_ratio, "#.##"))
+    table.cell(main_dashboard, 0, 3, "Sortino/CVaR(95%)", text_color = color.gray)
+    table.cell(main_dashboard, 1, 3, str.tostring(sortino_ratio, "#.##") + " / " + str.tostring(historical_cvar95 * 100, "#.##") + "%")
+    table.merge_cells(main_dashboard, 0, 4, 1, 4)
+    table.cell(main_dashboard, 0, 4, "--- Sentinel Engine ---", text_color = color.aqua)
+    table.cell(main_dashboard, 0, 5, "Risk Budget (λ)", text_color = color.gray)
+    table.cell(main_dashboard, 1, 5, str.tostring(lambda_risk_budget * 100, "#.#") + "%")
+    table.cell(main_dashboard, 0, 6, "Meso-Beta Z-Score", text_color = color.gray)
+    table.cell(main_dashboard, 1, 6, str.tostring(meso_beta_score, "#.##"))
+    table.cell(main_dashboard, 0, 7, "Meso-Momentum Ortho", text_color = color.gray)
+    table.cell(main_dashboard, 1, 7, str.tostring(meso_momentum_score, "#.##"))
+    table.merge_cells(main_dashboard, 0, 8, 1, 8)
+    table.cell(main_dashboard, 0, 8, "--- AOML Weights ---", text_color = color.orange)
+    table.cell(main_dashboard, 0, 9, "W(Meso-Momentum)", text_color = color.gray)
+    table.cell(main_dashboard, 1, 9, str.tostring(meso_momentum_weight, "#.####"))
+    table.cell(main_dashboard, 0, 10, "W(Meso-Beta)", text_color = color.gray)
+    table.cell(main_dashboard, 1, 10, str.tostring(meso_beta_weight, "#.####"))
+    table.cell(main_dashboard, 0, 11, "W(Macro Trend)", text_color = color.gray)
+    table.cell(main_dashboard, 1, 11, str.tostring(macro_trend_weight, "#.####"))
+    oi_status = na(oi_val) ? "N/A" : (math.abs(oi_zscore) > 2.5 ? "SPIKE" : "Stable")
+    table.cell(main_dashboard, 0, 12, "OI Sentinel", text_color = color.gray)
+    table.cell(main_dashboard, 1, 12, oi_status)
+    table.cell(main_dashboard, 0, 13, "Position Status", text_color = color.gray)
+    table.cell(main_dashboard, 1, 13, strategy.position_size != 0 ? (strategy.position_size > 0 ? "LONG" : "SHORT") : "FLAT")
+
+    lr_arr_dash = f_cosine_lr(AOML_BETA, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
+    adaptive_beta_val = f_safe_array_get(lr_arr_dash, 0, MIN_BETA)
+    table.cell(main_dashboard, 0, 14, "Adaptive Beta", text_color = color.gray)
+    table.cell(main_dashboard, 1, 14, str.tostring(nz(adaptive_beta_val, MIN_BETA), "#.####"))
+
+//───────────────────────────────────────────────────────────────────────────────
+// 7. DUMMY PLOT (for overlay=true)
+//───────────────────────────────────────────────────────────────────────────────
+plot(na)
+

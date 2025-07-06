@@ -1,4 +1,7 @@
 # Changelog
+## v38.2r-1 "Helios Nexus Patch 2 Hotfix" - 2025-07-08
+- Fixed commission threshold bug causing compilation error.
+- No functional changes other than bug fix.
 ## v38.2.0 "Helios Nexus Patch 2" - 2025-07-08
 - Added commission-aware entry gate and higher meta-exit threshold.
 - Volatility floor raised to 0.15 and TP reduction scaled back.
