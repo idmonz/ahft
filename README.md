@@ -12,6 +12,7 @@ in `scripts/` and the project documents live under `docs/`.
 - `CHANGELOG.md` – version history
 
 
+
 Version 38.0.0 ("Helios Nexus") implements distributional RL and adaptive Kelly
 sizing. See `CHANGELOG.md` for details.
 
