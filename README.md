@@ -1,20 +1,23 @@
 //@version=5
 // ==============================================================================
-// 📚 프로젝트: AHFT - Hephaestus-Prime (v37.9.2) "Finality" (Definitive Hot-Fix)
+// 📚 프로젝트: AHFT - Hephaestus-Prime (v37.9.4) "Guardian" (Quant Clamp Patch)
 // 🎯 목표: v37.9의 컴파일 오류를 헌장에 따라 완벽히 해결.
 //          - [HOT-FIX] array.get과 series 타입 혼용 오류 수정 (f_safe_array_get 도입).
 //          - 대표님의 모든 이전 수정사항 및 "pivot 로직 유지" 지시사항 100% 보존.
-// 📑 AUDIT v37.9.2: Production Ready. Compile-Error Free. Final Build.
+//          - [GUARDIAN] Hard Equity Stop, Vol‑Shock Guard, Gap Guard 추가.
+//          - 동적 계약 가치와 λ‑스무딩, 포지션 Clamp κ(t) 로 위험 분포 개선.
+//          - 탐험 확률 최대 30%, 진입 임계치 완화, Warm‑Up(1000bar) 안정화.
+// 📑 AUDIT v37.9.4: Production Ready. Compile-Error Free. Final Build.
 // ==============================================================================
 
-strategy("AHFT - Hephaestus-Prime (v37.9.2)", "AHFT-HPH-v37.9.2", overlay = true, initial_capital = 100000,
+strategy("AHFT - Hephaestus-Prime (v37.9.4)", "AHFT-HPH-v37.9.4", overlay = true, initial_capital = 100000,
          commission_type = strategy.commission.percent, commission_value = 0.04, slippage = 1,
          calc_on_every_tick = true, process_orders_on_close = false, max_bars_back = 5000, dynamic_requests = true)
 
 //───────────────────────────────────────────────────────────────────────────────
 // 0. 버전 상수 (헌장 제0조)
 //───────────────────────────────────────────────────────────────────────────────
-const string CODE_VERSION  = "v37.9.2"
+const string CODE_VERSION  = "v37.9.4"
 const float  GENE_VERSION  = 36.0
 //───────────────────────────────────────────────────────────────────────────────
 // 1. INPUTS (헌장 제1조)
@@ -60,7 +63,7 @@ EPSILON_PROB              = input.float(0.05, "ε: Probability", group = group_l
 
 //▬▬▬ (D) RISK ▬▬▬
 group_risk                = "🛡️  Risk & Sizing Engine"
-ENTRY_CONFIDENCE_THRESHOLD = input.float(0.70, "Entry: Confidence ≥", minval = 0.5, maxval = 0.95, group = group_risk)
+ENTRY_CONFIDENCE_THRESHOLD = input.float(0.65, "Entry: Confidence ≥", minval = 0.5, maxval = 0.95, group = group_risk)
 META_VETO_THRESHOLD        = input.float(0.65, "Entry: Meta-Risk ≤",  minval = 0.5, maxval = 0.95, group = group_risk)
 RISK_CONTRACT_VALUE        = input.float(1.0,  "Risk: Contract Val",           group = group_risk, tooltip="계약의 명목 가치. 예: BTCUSDT 선물 1계약 = 1 * 현재 BTC 가격")
 VOLATILITY_TARGET_PCT      = input.float(1.5,  "Vol-Target %", minval = 0.5, maxval = 5.0, step = 0.1,  group = group_risk)
@@ -72,10 +75,11 @@ DRAWDOWN_TARGET_PCT        = input.float(20.0, "Max DD %", minval = 5.0, maxval 
 
 //▬▬▬ (E) POSITION CTRL ▬▬▬
 group_position_control     = "🕹️  Position Control"
-max_long_qty_input         = input.float(100,   "Max Long Qty",                group = group_position_control)
-max_short_qty_input        = input.float(100,   "Max Short Qty",               group = group_position_control)
-contract_step_size_input   = input.float(0.001, "Contract Step", minval = 0, step = 0.001,        group = group_position_control)
-MIN_CONTRACT_QTY           = input.float(0.01,  "Min Contract Qty", group = group_position_control)
+max_long_qty_input         = input.float(50,   "Max Long Qty",                group = group_position_control)
+max_short_qty_input        = input.float(50,   "Max Short Qty",               group = group_position_control)
+contract_step_size_input   = input.float(0.1, "Contract Step", minval = 0.1, step = 0.1,        group = group_position_control)
+MIN_CONTRACT_QTY           = input.float(0.1,  "Min Contract Qty", group = group_position_control)
+POSITION_CLAMP_KAPPA       = input.float(15.0, "Position Clamp κ", minval=5, maxval=30, step=1.0, group=group_position_control)
 
 //▬▬▬ (F) EXIT ▬▬▬
 group_exit                 = "🚶 Adaptive Exit"
@@ -85,6 +89,7 @@ EXIT_VOL_MULT              = input.float(2.5,  "Climax: Vol ×",    group = grou
 EXIT_RSI_THRESH            = input.float(85.0, "Climax: RSI",      group = group_exit)
 EXIT_FUNCTORIALITY_THRESH  = input.float(0.4,  "Predict-Collapse", group = group_exit)
 TIME_STOP_BARS             = input.int(96, "Time-Stop (Bars)", group=group_exit, tooltip="수익성이 없는 포지션을 N개의 봉 이후 강제 청산합니다. (0으로 비활성화)")
+HARD_STOP_PCT             = input.float(5.0,  "Hard Equity Stop %", minval=1.0, maxval=20.0, step=0.5, group=group_exit)
 
 //▬▬▬ (G) UI ▬▬▬
 group_visual               = "🎨 UI"
@@ -96,6 +101,12 @@ dashboard_position_input   = input.string("Bottom Right", "Dash Pos", options = 
 //───────────────────────────────────────────────────────────────────────────────
 int   MIN_BARS_FOR_TRADING = 200
 const float MIN_BETA       = 0.02
+const float MIN_RISK_PER_TRADE = 0.002
+const float MAX_RISK_PER_TRADE = 0.02
+const int   WARMUP_BARS        = 1000
+const float WARMUP_LAMBDA      = 0.25
+const float WARMUP_KELLY_FRAC  = 0.2
+const float WARMUP_EPSILON     = 0.3
 
 var table main_dashboard             = na
 var float unified_signal_strength    = 0.0
@@ -742,20 +753,25 @@ if is_new_bar_event and bar_index > MIN_BARS_FOR_TRADING
 // ─── 5.3. Entry Logic ───
 if can_make_decision_event
     stdev_unified_signal = ta.stdev(unified_signal_strength, 100)
-    adaptive_entry_sig_threshold = math.max(0.1, 0.5 * stdev_unified_signal)
+    adaptive_entry_sig_threshold = math.max(0.05, 0.35 * stdev_unified_signal)
 
     current_dna = f_create_holographic_vector()
     k_neighbors_strat = f_ann_lookup(current_dna, "Strategist")
     synthesis_results = f_synthesize_meta_parameters(k_neighbors_strat, flat_optimal_path_db)
     base_confidence = f_safe_array_get(synthesis_results, 0, 0.0)
     is_opportunity_valid = (math.abs(unified_signal_strength) > adaptive_entry_sig_threshold) and (base_confidence > ENTRY_CONFIDENCE_THRESHOLD)
+    price_gap = math.abs(open - close[1])
+    if session.isfirstbar and price_gap > 0.8 * ta.atr(14)
+        is_opportunity_valid := false
     
     bars_since_last_trade = ta.barssince(is_trade_closed_event)
     recent_no_trade = nz(bars_since_last_trade)
     is_exploration_time = USE_EPSILON_GREEDY and recent_no_trade > EPSILON_BAR_LIMIT
     
     rand_val = math.random(0.0, 1.0)
-    eps_prob_dyn = EPSILON_PROB * math.min(3.0, recent_no_trade / 100.0)
+    eps_prob_dyn = math.min(0.30, EPSILON_PROB * recent_no_trade / 50.0)
+    if bar_index < WARMUP_BARS
+        eps_prob_dyn := WARMUP_EPSILON
     is_exploration_triggered = is_exploration_time and rand_val < eps_prob_dyn and math.abs(unified_signal_strength) < adaptive_entry_sig_threshold / 2
 
     if is_opportunity_valid or is_exploration_triggered
@@ -771,16 +787,31 @@ if can_make_decision_event
             eff_payoff = USE_SORTINO_KELLY ? sortino_ratio : payoff_ratio
             f_star = f_calculate_cvar_constrained_kelly(win_rate, eff_payoff, historical_cvar95, CVAR_CONSTRAINT_TAU / 100)
             kelly_frac = f_star > 0 ? math.max(0.1, math.min(1.0, f_star)) * FRACTIONAL_KELLY_KAPPA : 0.1
+            if bar_index < WARMUP_BARS
+                kelly_frac := WARMUP_KELLY_FRAC
             if USE_DRAWDOWN_KELLY and rolling_mdd > 0
                 kelly_frac := kelly_frac * math.min(1.0, (DRAWDOWN_TARGET_PCT / 100) / math.max(rolling_mdd, 1e-6))
+            if bar_index < WARMUP_BARS or rolling_mdd > 0.10
+                kelly_frac := math.min(kelly_frac, 0.25)
             
             loc_vol_pct = ta.ema(ta.tr, 10) / close
-            risk_per_unit = math.max(1e-9, loc_vol_pct * RISK_CONTRACT_VALUE) 
-            target_risk_per_trade = (strategy.equity * (VOLATILITY_TARGET_PCT / 100)) * kelly_frac
+            risk_per_unit = math.max(1e-9, loc_vol_pct * close * RISK_CONTRACT_VALUE)
+            atr_now = ta.atr(14)
+            atr_mean = ta.sma(atr_now, 100)
+            atr_std = ta.stdev(atr_now, 100)
+            atr_z = atr_std > 0 ? (atr_now - atr_mean) / atr_std : 0.0
+            target_risk_raw = (strategy.equity * (VOLATILITY_TARGET_PCT / 100)) * kelly_frac
+            target_risk_per_trade = math.min(strategy.equity * MAX_RISK_PER_TRADE, math.max(strategy.equity * MIN_RISK_PER_TRADE, target_risk_raw))
             cvar_proxy = historical_var95 > 0 ? historical_cvar95 / historical_var95 : 1.0
             gamma = 5 * (1 + f_normalize(math.log(cvar_proxy + 1e-9)))
             lambda_raw = math.exp(-rolling_mdd * gamma) * f_normalize(functoriality_score)
-            lambda_risk_budget := math.max(0.01, math.max(0.05 * math.exp(-rolling_mdd * 10), lambda_raw))
+            lambda_smoothed = ta.ema(lambda_raw, 20)
+            lambda_risk_budget := math.max(0.05, lambda_smoothed)
+            if bar_index < WARMUP_BARS
+                lambda_risk_budget := WARMUP_LAMBDA
+            if atr_z > 2
+                lambda_risk_budget := lambda_risk_budget * 0.5
+                dynamic_tsl_mult *= 0.7
             kelly_size = risk_per_unit > 0 ? target_risk_per_trade / risk_per_unit : 0
             hist_ok_cvar = not na(historical_cvar95)
             ema_cvar = ta.ema(hist_ok_cvar ? historical_cvar95 : 0.0, 100)
@@ -790,7 +821,10 @@ if can_make_decision_event
             market_impact_score = syminfo.type == "futures" ? f_normalize(ta.sma(volume, 5) / nz(ta.sma(ta.tr, 20), 1)) : f_normalize((high - low) / base_rng)
             raw_floor = 0.5 * (1 - cvar_rank) + 0.5 * market_impact_score
             min_lambda_floor = math.max(0.05, math.min(0.95, raw_floor))
-            pos_size = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
+            vol_rank = ta.percentrank(loc_vol_pct, 100)
+            clamp_kappa = 5 + 10 * math.exp(-vol_rank)
+            pos_size_unclamped = kelly_size * math.max(min_lambda_floor, math.sqrt(lambda_risk_budget))
+            pos_size = pos_size_unclamped / (1 + pos_size_unclamped / clamp_kappa)
             max_qty_limit = unified_signal_strength > 0 ? max_long_qty_input : max_short_qty_input
             capped_size = math.min(pos_size, max_qty_limit)
             step = contract_step_size_input
@@ -821,13 +855,17 @@ if is_entry_fill_event
     initial_tp_mult = DYNAMIC_RR_ENABLED ? math.max(2.0, 2.5 - vol_regime) * initial_tsl_mult : initial_tsl_mult * 2.0
 
     initial_risk_budget = realized_volatility * initial_tsl_mult
-    initial_sl_price = strategy.position_size > 0 ? close - initial_risk_budget : close + initial_risk_budget
+    hard_stop_dist = (strategy.equity * (HARD_STOP_PCT / 100)) / math.max(math.abs(strategy.position_size), 1e-6)
+    risk_dist = math.min(initial_risk_budget, hard_stop_dist)
+    initial_sl_price = strategy.position_size > 0 ? close - risk_dist : close + risk_dist
     last_trail_stop := initial_sl_price
     hh_since_entry := high[1]
     ll_since_entry := low[1]
     initial_tp_price = strategy.position_size > 0 ? close + realized_volatility * initial_tp_mult : close - realized_volatility * initial_tp_mult
     last_trail_tp := initial_tp_price
     strategy.exit("SL/TP", from_entry = strategy.position_size > 0 ? "Long" : "Short", stop = initial_sl_price, limit = initial_tp_price)
+    hard_stop_price = strategy.position_size > 0 ? strategy.position_avg_price - hard_stop_dist : strategy.position_avg_price + hard_stop_dist
+    strategy.exit("HardSL", from_entry = strategy.position_size > 0 ? "Long" : "Short", stop = hard_stop_price)
     var_dna_for_trade := f_create_holographic_vector()
     var_entry_bar_index := bar_index
     var_entry_time := time
@@ -1123,17 +1161,17 @@ v37.8 강화 (Fractional Kelly, Thorp, 2017):
 최적의 베팅 비율이 결정된 후, 실제 주문 수량은 현재 시장의 위험도를 반영하여 최종적으로 조절됩니다.
 v37.6.1 강화 (리스크 유닛 교정):
 문제점: risk_per_unit 계산 시 스케일 오류로 인해 리스크가 과소평가되어 포지션 사이즈가 소멸되었습니다.
-해결책: loc_vol_pct = ta.ema(ta.tr, 10) / close를 통해 백분율 변동성을 먼저 명시적으로 계산한 후, risk_per_unit = loc_vol_pct * RISK_CONTRACT_VALUE 공식을 사용하여 리스크 단위를 USD 기준으로 완벽하게 통일했습니다.
+해결책: loc_vol_pct = ta.ema(ta.tr, 10) / close로 백분율 변동성을 계산하고, risk_per_unit = loc_vol_pct * close * RISK_CONTRACT_VALUE 공식으로 동적 계약 가치를 반영합니다.
 λ-Risk Budget & Scheduler:
 lambda_raw는 현재 시장의 예측 가능성(functoriality_score)과 누적 손실폭(rolling_mdd)을 고려하여 '위험 예산'의 기본 비율을 결정합니다.
 v37.8 강화 (비선형 λ-Floor):
 문제점: MDD가 심화될 때 λ가 너무 빠르게 0으로 수렴하여 거래가 단절되었습니다.
-해결책: lambda_risk_budget의 하한선을 고정값 대신 math.max(0.01, math.max(0.05 * math.exp(-rolling_mdd * 10), lambda_raw))로 설정했습니다. 이는 MDD가 깊어질수록 하한선도 함께 낮아지면서도, **절대 최소값 0.01(1%)**을 보장하여 극단적인 상황에서도 시스템의 거래 능력을 유지시키는, 더욱 정교한 비선형 감쇠 로직입니다.
+해결책: λ 스케줄러를 ta.ema(lambda_raw, 20)으로 부드럽게 평균한 뒤, 0.05의 소프트 플로어를 더해 급격한 변동을 완충했습니다.
 [PART 10/30] 실행 엔진 3: 진입 프로토콜 (3중 게이트)
 모든 진입 결정은 3개의 까다로운 관문을 통과해야만 최종 승인됩니다.
 게이트 1: 적응형 신호 강도 (Adaptive Signal Strength)
 조건: math.abs(unified_signal_strength) > adaptive_entry_sig_threshold
-v37.7 강화: 고정 임계값 대신, unified_signal_strength의 100봉 표준편차를 이용한 동적 임계값을 사용합니다. 이는 시장이 조용할 때는 더 작은 신호에도 반응하고, 시끄러울 때는 더 강한 신호만을 요구하여 시장 상황에 맞게 필터의 강도를 자동 조절합니다.
+v37.9.3 강화: adaptive_entry_sig_threshold = max(0.05, 0.35 × σ) 공식을 적용해, 지나친 게이트 과도 현상을 완화했습니다.
 게이트 2: ANN 기반 신뢰도 (ANN-based Confidence)
 조건: base_confidence > ENTRY_CONFIDENCE_THRESHOLD
 v37.7 강화 (Soft Confidence): base_confidence 계산 시 f_normalize를 제거하여, ANN이 출력하는 원시적인 신뢰도 점수를 그대로 사용합니다. 이는 미묘한 신뢰도 차이를 보존하여 더 정교한 판단을 가능하게 합니다.
@@ -1155,6 +1193,7 @@ v37.8 신규 5차 방어선: 시간 정지 (Time-Stop)
 조건: 위 방어선들이 뚫리지 않는 동안, 진입 시 설정된 동적 트레일링 스탑(TSL) 또는 목표가(TP)에 도달할 때.
 v37.8 강화 (Dynamic R:R Target): initial_tp_mult 계산 시, 시장 변동성 순위(vol_regime)를 반영하여 변동성이 높을수록 더 보수적인(낮은) TP 배수를 설정합니다. 이는 불안정한 시장에서 이익을 조기에 확보하여 승률을 높이고 Pay-off Ratio를 개선하는 것을 목표로 합니다.
 v37.9 강화 (ATR-Guard TSL): initial_tsl_mult 계산 시, math.max(1.2, ...) 가드를 추가하여 변동성이 아무리 낮아져도 최소한의 손절폭을 확보, 급격한 갭 발생에 대한 방어력을 높였습니다.
+v37.9.4 예고 (Guardian): Hard Equity Stop 5%와 Vol-Shock Guard(ATR z-score > 2 시 λ 50%↓, TSL 30%↓)가 추가되어 대규모 변동 시 자본 보호 기능이 강화됩니다.
 [PART 12/30] 학습 루프: 스스로 현명해지는 방법
 AOML (적응형 온라인 메타 학습): (v37.2 문서와 동일) Tail-Aware Reward Shaping과 SGDR 스케줄러를 통해 전문가 가중치를 지속적으로 업데이트합니다.
 최적 경로 데이터베이스 강화: (v37.2 문서와 동일) 매 거래 종료 시, '가상의 최적 파라미터'를 역산하여 새로운 '성공 유전자'를 DB에 추가합니다.
@@ -1163,7 +1202,7 @@ v37.8 신규 학습 모듈: ε-Greedy 탐험적 진입 (Adaptive Epsilon-Greedy)
 해결책 (Moody & Saffell, 2001 참조):
 USE_EPSILON_GREEDY 옵션을 통해 기능을 활성화합니다.
 일정 기간(EPSILON_BAR_LIMIT) 동안 거래가 없으면, 탐험 모드가 활성화됩니다.
-Adaptive Rate: 탐험 확률(eps_prob_dyn)은 거래가 없었던 기간에 비례하여 점진적으로 증가합니다. eps_prob_dyn = EPSILON_PROB * math.min(3.0, recent_no_trade / 100.0)
+Adaptive Rate: 탐험 확률(eps_prob_dyn)은 거래 공백이 길수록 빠르게 증가합니다. eps_prob_dyn = min(0.30, EPSILON_PROB × recent_no_trade / 50)
 Controlled Exploration: 탐험은 unified_signal_strength가 매우 약한, 즉 시스템이 "방향을 전혀 모르겠는" 상태에서만 최소 수량으로 이루어집니다. 이는 완전한 무작위 진입이 아닌, 통제된 환경에서의 데이터 수집을 보장합니다.
 [PART 13/30] 사용자 매뉴얼: 시스템과의 대화법
 AHFT는 사용자와 상호작용하며 함께 성장하는 '파트너'입니다. 이 도구를 효과적으로 활용하기 위한 핵심 설정은 다음과 같습니다.
@@ -1264,7 +1303,7 @@ AHFT의 포지션 사이징은 여러 단계의 필터를 거치는 정교한 '�
 lambda_raw는 현재의 예측 가능성(functoriality_score)과 누적 손실폭(rolling_mdd)을 반영하여 '위험 예산'을 동적으로 조절합니다.
 v37.8 강화 (Adaptive λ-Floor): lambda_risk_budget에 math.max(0.01, ...) 가드를 추가하여, MDD가 아무리 깊어져도 최소 1%의 위험 예산을 보장함으로써 거래 단절을 방지합니다.
 실제 주문 수량으로 변환:
-v37.8 강화 (Risk Unit 교정): risk_per_unit = (ta.ema(ta.tr, 10) / close) * RISK_CONTRACT_VALUE 공식을 사용하여, **(백분율 변동성) x (계약의 명목 가치)**라는 정확한 USD 기준 리스크 단위를 계산합니다.
+v37.9.3 강화 (Risk Unit 교정): risk_per_unit = (ta.ema(ta.tr, 10) / close) * close * RISK_CONTRACT_VALUE 공식을 사용하여, **(백분율 변동성) x (현재가) x (계약 승수)** 형태로 동적으로 계산합니다.
 최종 위험 예산을 risk_per_unit으로 나누어 목표 주문 수량(kelly_size)을 계산합니다.
 실거래를 위한 최종 보정 (Production Hardening):
 계산된 주문 수량은 최대/최소 수량 제한, 주문 단위 라운딩 등 실제 거래소의 제약 조건에 맞춰 최종적으로 보정됩니다.
@@ -1290,7 +1329,7 @@ Out-of-Sample 기간: 최적화된 파라미터를 고정한 채, 시스템이 �
 [PART 26/30] 실거래 적용 시나리오 및 모범 사례
 스윙 트레이더 (수일 ~ 수주 보유):
 타임프레임: MACRO: D, MESO: 240, MICRO: 60
-핵심 파라미터: ENTRY_CONFIDENCE_THRESHOLD: 0.75 이상, VOLATILITY_TARGET_PCT: 1.0 ~ 1.5%, TIME_STOP_BARS: 240 (5일) 이상.
+핵심 파라미터: ENTRY_CONFIDENCE_THRESHOLD: 0.65 이상, VOLATILITY_TARGET_PCT: 1.0 ~ 1.5%, TIME_STOP_BARS: 240 (5일) 이상.
 데이 트레이더 (하루 이내 청산):
 타임프레임: MACRO: 240, MESO: 60, MICRO: 15
 핵심 파라미터: EXIT_META_CONFIDENCE: 0.75 이하, TIME_STOP_BARS: 16 (4시간) 이하.
