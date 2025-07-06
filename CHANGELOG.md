@@ -1,4 +1,8 @@
 # Changelog
+## v38.7.0 "Helios Nexus Patch 7" - 2025-07-13
+- Added deterministic random seed initialization for reproducible runs.
+- Enabled lagged order-book imbalance on the 15m feed and added a 4R take profit.
+
 ## v38.6r-1 "Helios Nexus Patch 6 Hotfix" - 2025-07-12
 - Fixed a function definition error that caused compilation failure in v38.6.0.
 ## v38.6.0 "Helios Nexus Patch 6" - 2025-07-12
