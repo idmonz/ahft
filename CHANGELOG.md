@@ -1,4 +1,8 @@
 # Changelog
+## v38.5.0 "Helios Nexus Patch 5" - 2025-07-11
+- Introduced risk capsule sizing and partial exit at 1:1 R:R.
+- Expanded Thompson variants and tuned reward scaling.
+- Lambda floor logic refined for stability.
 ## v38.4-r1 "Helios Nexus Patch 4" - 2025-07-10
 - Added Bayesian parameter search and improved DistRL transfer.
 - Optimized commission gate with contract value check.
