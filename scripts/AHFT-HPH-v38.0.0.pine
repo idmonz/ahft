@@ -173,18 +173,10 @@ varip float sgdr_next_reset          = na
 var array<float> goertzel_s1         = array.new_float(5, 0.)
 var array<float> goertzel_s2         = array.new_float(5, 0.)
 
-//–– DistRL skeleton
+//–– DistRL storage
 int NUM_Q = 7
 var array<float> dist_arr            = array.new_float(NUM_Q, 0.)
 
-f_update_qrdqn(rew) =>
-    idx = ct_count % NUM_Q
-    val = f_safe_array_get(dist_arr, idx, 0.0)
-    array.set(dist_arr, idx, val * 0.9 + 0.1 * rew)
-
-f_qrdqn_lambda(qarr) =>
-    q_med = array.percentile(qarr, 50)
-    f_clamp(1 + q_med / 100, 0.3, 2.0)
 //–– DBs (flattened)
 int DNA_VECTOR_SIZE = 12, PARAMS_VECTOR_SIZE = 3, OPTIMAL_PATH_GENE_LENGTH = DNA_VECTOR_SIZE+PARAMS_VECTOR_SIZE
 var array<float> flat_optimal_path_db = array.new_float()
@@ -667,6 +659,24 @@ f_calculate_cvar_constrained_kelly(w, p, cvar_hist, tau) =>
         f := lo_b
     math.max(0, math.min(f, 1))
 
+f_update_qrdqn(rew) =>
+    idx = ct_count % NUM_Q
+    val = f_safe_array_get(dist_arr, idx, 0.0)
+    array.set(dist_arr, idx, val * 0.9 + 0.1 * rew)
+
+f_array_percentile(arr, pct) =>
+    if array.size(arr) == 0
+        0.0
+    else
+        sorted = array.copy(arr)
+        array.sort(sorted)
+        idx = int(math.floor(pct / 100 * (array.size(sorted) - 1)))
+        f_safe_array_get(sorted, idx, 0.0)
+
+f_qrdqn_lambda(qarr) =>
+    q_med = f_array_percentile(qarr, 50)
+    f_clamp(1 + q_med / 100, 0.3, 2.0)
+
 //───────────────────────────────────────────────────────────────────────────────
 // 5. EXECUTION (헌장 제1조, 제12조)
 //───────────────────────────────────────────────────────────────────────────────
@@ -810,6 +820,7 @@ if can_make_decision_event
             dynamic_exit_sensitivity := f_safe_array_get(synthesis_results, 3, 0.5)
             eff_payoff = USE_SORTINO_KELLY ? sortino_ratio : payoff_ratio
             base_kappa = FRACTIONAL_KELLY_KAPPA * math.exp(-rolling_mdd * DRAWDOWN_PHI)
+            f_star = f_calculate_cvar_constrained_kelly(win_rate, eff_payoff, historical_cvar95, CVAR_CONSTRAINT_TAU / 100)
             kelly_frac = f_star > 0 ? math.max(0.1, math.min(1.0, f_star)) * base_kappa : 0.1
             if bar_index < WARMUP_BARS
                 kelly_frac := WARMUP_KELLY_FRAC
