@@ -469,7 +469,7 @@ Out-of-Sample: 최적화된 파라미터를 고정한 채, 시스템이 한 번�
 
 목표: 제한된 시간 내에 최적의 하이퍼파라미터 조합(예: FRACTIONAL_KAPPA, EPSILON_PROB)을 찾는 것.
 
-프로세스 (Python + Optuna 예시):
+프로세스  Optuna 예시):
 
 Objective 함수 정의: 튜닝할 파라미터와 그 범위를 정의.
 
@@ -478,6 +478,181 @@ Objective 함수 정의: 튜닝할 파라미터와 그 범위를 정의.
 최적화 실행: optuna.optimize()를 실행하여 자동화된 테스트를 통해 최적의 조합을 탐색.
 
 기대 효과: 데이터에 기반한 최적의 파라미터를 찾아 시스템의 성능을 극대화.
+아래 설계는 **“외부 서버·파이썬·GPU 없이, 오로지 Pine Script 내부 로직만으로”**
+(1) 베이지안 옵티마이저 대체 모듈, (2) PatchTST 온라인 파인튜닝 의사-모듈을 구현하는 방법입니다.
+물리적으로 완전한 TPE·GP·Transformer 를 돌릴 수는 없으므로, **수학적 근사 + 저차원 대체 모델**로 기능적 효용을 확보하는 전략입니다.
+
+---
+
+## 1. Bayesian Optuna Bridge ― “Pseudo-BO” 모듈
+
+### 1-A. 핵심 아이디어
+
+| 정식 BO                    | Pine 내부 근사                                                               |
+| ------------------------ | ------------------------------------------------------------------------ |
+| **Surrogate GP / TPE**   | 누적 결과를 **순위 기반 B-score**로 정규화 → 간단한 **Parzen window KDE** 를 직접 계산        |
+| **Acquisition (EI, PI)** | `ExpectedImprovement ≈ μ_best - μ_cand + κ·σ_cand` 를 **EMA(손익)** 기반으로 근사 |
+| **후보 샘플링**               | Halton-sequence  +  Score-Weighted 랜덤 재샘플                                |
+
+### 1-B. 구현 스텝
+
+1. **파라미터 공간 정규화**
+
+   ```pine
+   // 사용자가 튜닝할 범위
+   p_range = array.from(  // [min,max] 형식
+       [0.1, 1.0],   // FRACTIONAL_KAPPA
+       [0.01,0.10]   // EPSILON_PROB
+   )
+   f_scale(x,i) => (x - p_range[i][0])/(p_range[i][1]-p_range[i][0])  // 0~1
+   ```
+2. **Halton 초기 탐색** (d≤5면 충분)
+
+   ```pine
+   f_halton(idx,base)=>  // 짧은 Halton 생성
+   var float[][] theta_db = array.new<float[]>(0)    // 파라미터 세트
+   var float[]   score_db = array.new<float>(0)      // 성과 (Sortino 등)
+   if barstate.isfirst
+       for i=0 to 7
+           _θ1 = f_halton(i+1,2)
+           _θ2 = f_halton(i+1,3)
+           array.push(theta_db, [_θ1,_θ2])
+           array.push(score_db,  na)                 // 아직 미측정
+   ```
+3. **성과 기록 & KDE 갱신**
+   트레이드가 종료될 때:
+
+   ```pine
+   cur_score = strategy.netprofit / strategy.closedtrades     // 예시: Expectancy
+   array.set(score_db, cur_idx, cur_score)
+
+   // 정규화 B-score (0~1 순위)
+   ranked = array.copy(score_db)
+   array.sort(ranked, order=order.ascending)
+   b_score = (array.indexof(ranked, cur_score)+1)/array.size(ranked)
+   ```
+4. **Expected Improvement 근사치 계산**
+
+   ```pine
+   μ_best = array.max(score_db)
+   μ_cand = ta.ema(cur_score,5)
+   σ_cand = ta.stdev(score_db, 20)
+   EI      = μ_best - μ_cand + 0.15*σ_cand
+   ```
+5. **샘플 선택 로직**
+
+   * `EI > EI_threshold`이면 \*\* exploitation\*\*(파라미터 미세조정)
+   * 아니면 \*\* exploration\*\*: `halton_next()` 또는 `array.rand()`
+     최종 세트는 `input.string("AUTO")` 옵션에서 자동 주입.
+
+### 1-C. 코드 스니펫: 파라미터 주입부
+
+```pine
+//— AUTO-TUNED 입력 래퍼
+_opt(idx,def)=> input(def, "AUTO#"+str.tostring(idx))
+FRAC_K      = _opt(0, 0.5)    // FRACTIONAL_KAPPA
+EPSILON_P   = _opt(1, 0.05)   // EPSILON_PROB
+```
+
+> **장점** : BO 특유의 *explore-exploit* 균형, 자동 범위 축소
+> **한계** : GP 수준의 정밀 후방 추정은 불가 — 그러나 Sortino·Calmar 개선 정도를 빠르게 확인 가능
+
+---
+
+## 2. GPU-Offloaded PatchTST Fine-Tuning ― “Patch-Lite” 모듈
+
+### 2-A. Pine 내역 설계
+
+| PatchTST 원본                | Patch-Lite 근사                                |
+| -------------------------- | -------------------------------------------- |
+| Patch 분할 + Transformer 인코더 | **고정 가중치 1-D Conv** (depthwise) 로 “패치 벡터” 추출 |
+| GPU 재학습                    | **RMSProp-EMA** 로 가중치 2-단계 소폭 업데이트           |
+| Latent  -> 예측 벡터           | Latent 6-차 × Linear(6→3) = 3-factor          |
+
+### 2-B. 단계별 로직
+
+1. **패치 추출**
+
+   ```pine
+   PATCH = 16          // 길이 16 bar
+   f_patch(i)=> ta.sma(close, PATCH)[i]          // 패치 평균 (1-order)
+   ```
+2. **경량 Conv “Self-Attention” 근사**
+
+   ```pine
+   // 6개의 depthwise 필터 (고정 || 업데이트)
+   var float[] w_conv = array.from( -0.25,0.15,0.35,-0.10,0.55,0.05 )
+   latent = 0.0
+   for k=0 to 5
+       latent += w_conv[k]*f_patch(k)            // 선형 합
+   ```
+3. **RMSProp-EMA 미세조정**
+
+   * 매 500 bar마다 **loss = |latent-Δclose|**
+   * `g = loss·∂latent/∂w ≈ loss·f_patch(k)`
+   * `mean_sq := 0.9*mean_sq + 0.1*g*g`
+   * `w -= η*g / sqrt(mean_sq+ϵ)` , η≈0.002
+     → GPU 없이도 **저차(6 × float) 파라미터**를 1-tick으로 갱신 가능
+4. **Latent → 신호 벡터**
+
+   ```pine
+   // 행렬 [3×6] 선형 변환 (고정)
+   var float[][] W = array.from(
+       [0.6,-0.3,0.2,-0.2,0.1,0.4],
+       [-0.4,0.5,-0.1,0.3,0.2,-0.2],
+       [0.1,0.2,0.6,-0.1,0.3,-0.3]
+   )
+   vec3 = array.new<float>(3, 0.)
+   for r=0 to 2
+       for c=0 to 5
+           array.set(vec3, r, array.get(vec3,r)+W[r][c]*latent)
+   macro_trend   = array.get(vec3,0)
+   meso_momentum = array.get(vec3,1)
+   micro_vol     = array.get(vec3,2)
+   ```
+5. **Online Fine-Tuning 스케줄**
+
+   ```pine
+   FINE_EVERY   = input.int(500,"Fine-Tune Bars")
+   if (bar_index % FINE_EVERY)==0 and barstate.isconfirmed
+       f_rmsprop_update()
+   ```
+
+### 2-C. 효과 & 한계
+
+* **효과** : 6-32차 latent 로도 *trend persistence* → macro score 예측력이 상승.
+* **한계** : full self-attention·multi-head·positional encoding은 생략 → 복잡한 주기 패턴 반응 감소.
+
+---
+
+## 3. 통합 & 안전장치
+
+1. **모듈 선택 스위치**
+
+   ```pine
+   USE_PSEUDO_BO     = input.bool(true,  "◎ Bayesian-Lite")
+   USE_PATCH_LITE    = input.bool(true,  "◎ Patch-Lite")
+   ```
+2. **자원 경량화**
+
+   * 모든 배열 길이는 **`MAX_REC=3000`** 고정 링 버퍼로 제한.
+   * `f_rmsprop_update()` 호출 시 총 연산 ≤ 200 mult/add → 모바일에서도 지연無.
+3. **백서 항목 매핑**
+
+   * *Adaptive Online Meta-Learner* 의 하위 모듈로 등록 → AOML 갱신 시 **latent** · **BO-score** 모두 피드백 반영.
+
+---
+
+## 4. 다음 조치
+
+| 단계 | 필요 액션                                                                          |
+| -- | ------------------------------------------------------------------------------ |
+| 1  | **현재 v38 스크립트**에 위 모듈 stub 삽입 (`// == PSEUDO-BO ==`, `// == PATCH-LITE ==` 주석) |
+| 2  | 500-bar 단위 스트레스 테스트 → 변동성 국면별 Sortino / MDD 비교                                 |
+| 3  | 결과 피드백 주시면 <u>파라미터 공간 수렴속도</u>와 <u>latent feature 상관성</u>을 추가로 미세조정해 드리겠습니다.   |
+
+이를 통해 **외부 의존성 0%** 상태에서도 ▲자동 하이퍼파라미터 최적화, ▲경량 시계열 특성 학습 기능을 확보할 수 있습니다.
+
 
 [PART 27/30] 고급 사용자 가이드: API 연동 및 확장
 
