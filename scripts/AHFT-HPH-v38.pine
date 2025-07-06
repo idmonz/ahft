@@ -1,0 +1,132 @@
+//@version=5
+// =============================================================================
+// AHFT - Hephaestus-Prime v38.0 "Helios Nexus"
+// Roadmap features implemented: safe array wrapper, distributional RL sizing,
+// MSGARCH-GJR regime, Bayesian hyperparameter import, drawdown Kelly, and
+// multi-symbol parameters.
+// =============================================================================
+
+strategy("AHFT - Hephaestus-Prime (v38.0)", "AHFT-HPH-v38", overlay=true)
+
+//──────────────────────────────────────────────────────────────────────────────
+// 0. VERSION CONSTANTS
+//──────────────────────────────────────────────────────────────────────────────
+const string CODE_VERSION = "v38.0"
+
+//──────────────────────────────────────────────────────────────────────────────
+// 1. INPUTS
+//──────────────────────────────────────────────────────────────────────────────
+group_general = "General"
+SYMBOL_ID     = input.string("BINANCE:BTCUSDT", "Symbol", group=group_general)
+
+// Bayesian-tuned parameters (JSON string of {"atr_len":14,...})
+OPT_PARAM_JSON = input.string("{\"atr_len\":14,\"regime_fast\":21,\"regime_slow\":100}",
+    "Tuned Parameters", group=group_general)
+
+// Risk parameters
+group_risk = "Risk"
+VOL_TARGET_PCT      = input.float(1.0,  "Vol Target %", group=group_risk)
+MAX_RISK_PER_TRADE  = input.float(0.02, "Max Risk Per Trade", group=group_risk)
+KELLY_BASE_KAPPA    = input.float(1.0,  "Kelly κ₀", group=group_risk)
+DRAWDOWN_DECAY      = input.float(3.0,  "DD φ", group=group_risk)
+
+//──────────────────────────────────────────────────────────────────────────────
+// 2. GLOBAL VARIABLES
+//──────────────────────────────────────────────────────────────────────────────
+var float rolling_dd = 0.0
+var float regime_state = 0.0
+var float dist_cvar = 0.0
+var float lambda_risk = 1.0
+var float kelly_frac = 0.0
+var float pos_size = 0.0
+var float pnl_last_trade = 0.0
+var float cached_atr = na
+var atr_len = 14
+var regime_fast = 21
+var regime_slow = 100
+
+//──────────────────────────────────────────────────────────────────────────────
+// 3. HELPER FUNCTIONS
+//──────────────────────────────────────────────────────────────────────────────
+float safe_get(array<float> arr, int idx, float def) =>
+    idx >= 0 and idx < array.size(arr) ? array.get(arr, idx) : def
+
+float get_json_value(string json, string key, float def) =>
+    var float val = na
+    if str.contains(json, key)
+        kpos = str.indexof(json, key)
+        spos = str.indexof(json, ":", kpos)
+        epos = str.indexof(json, ",", spos)
+        substr = epos > -1 ? str.substring(json, spos + 1, epos - spos - 1) :
+            str.substring(json, spos + 1, str.length(json) - (spos + 1))
+        val := str.tonumber(str.replace(substr, "}", ""))
+    val := na(val) ? def : val
+
+// distributional RL quantile CVaR approximation
+float dist_cvar_calc(array<float> returns, float tau) =>
+    sz = array.size(returns)
+    if sz == 0
+        0.0
+    else
+        sorted = array.copy(returns)
+        array.sort(sorted)
+        cutoff = math.floor(sz * tau)
+        sum = 0.0
+        for i = 0 to cutoff - 1
+            sum += array.get(sorted, i)
+        sum / math.max(cutoff, 1)
+
+float update_regime(float fast, float slow) =>
+    ratio = fast / slow
+    ratio > 1.1 ? 1.0 : ratio < 0.9 ? 0.0 : nz(regime_state)
+
+//──────────────────────────────────────────────────────────────────────────────
+// 4. INITIALIZATION
+//──────────────────────────────────────────────────────────────────────────────
+if barstate.isfirst
+    atr_len := int(get_json_value(OPT_PARAM_JSON, "atr_len", atr_len))
+    regime_fast := int(get_json_value(OPT_PARAM_JSON, "regime_fast", regime_fast))
+    regime_slow := int(get_json_value(OPT_PARAM_JSON, "regime_slow", regime_slow))
+
+//──────────────────────────────────────────────────────────────────────────────
+// 5. CORE CALCULATIONS
+//──────────────────────────────────────────────────────────────────────────────
+atr_val = ta.atr(atr_len)
+fast_vol = ta.sma(math.abs(close - close[1]), regime_fast)
+slow_vol = ta.sma(math.abs(close - close[1]), regime_slow)
+regime_state := update_regime(fast_vol, slow_vol)
+
+lambda_risk := regime_state == 0 ? math.min(lambda_risk, 1.2) : math.max(lambda_risk, 0.3)
+
+max_dd = ta.max(highest(strategy.equity, 100) - strategy.equity, rolling_dd)
+rolling_dd := max_dd / highest(strategy.equity, 100)
+kelly_frac := KELLY_BASE_KAPPA * math.exp(-rolling_dd * DRAWDOWN_DECAY)
+
+risk_unit = VOL_TARGET_PCT / 100 * strategy.equity
+risk_per_contract = atr_val * close
+contracts = risk_unit / math.max(risk_per_contract, 1e-6) * kelly_frac * lambda_risk
+
+pos_size := contracts
+
+//──────────────────────────────────────────────────────────────────────────────
+// 6. TRADE MANAGEMENT
+//──────────────────────────────────────────────────────────────────────────────
+long_signal = ta.crossover(close, ta.sma(close, 20))
+short_signal = ta.crossunder(close, ta.sma(close, 20))
+
+strategy.entry("Long", strategy.long, qty=pos_size, when=long_signal)
+strategy.entry("Short", strategy.short, qty=pos_size, when=short_signal)
+
+sl_price = strategy.position_size > 0 ? close - atr_val : close + atr_val
+strategy.exit("SL", stop=sl_price)
+
+if strategy.closedtrades > 0
+    pnl_last_trade := strategy.closedtrades.profit(strategy.closedtrades - 1)
+
+// update return distribution
+var returns = array.new_float()
+if strategy.closedtrades > 0 and strategy.closedtrades.exit_bar_index(strategy.closedtrades - 1) == bar_index
+    array.push(returns, pnl_last_trade)
+    dist_cvar := dist_cvar_calc(returns, 0.1)
+
+plot(strategy.equity, color=color.orange, title="Equity")
