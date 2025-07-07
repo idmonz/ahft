@@ -1,4 +1,6 @@
 # Changelog
+## v38.7r-1 "Helios Nexus Patch 7 Hotfix" - 2025-07-13
+- Fixed missing `math.seed` call and day-of-year reference for deterministic PRNG.
 ## v38.7.0 "Helios Nexus Patch 7" - 2025-07-13
 - Added deterministic random seed initialization for reproducible runs.
 - Enabled lagged order-book imbalance on the 15m feed and added a 4R take profit.
