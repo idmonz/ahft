@@ -5,11 +5,11 @@ AHFT Hephaestus-Prime project. Strategy scripts live in `scripts/` and the
 project documents live under `docs/`.
 
 ## Layout
-- `scripts/AHFT-HPH-v38.8r-4.pine` – current strategy release
+- `scripts/AHFT-HPH-v38.8r-6.pine` – current strategy release
 - `scripts/AHFT-HPH-v38.8r-1.pine` – first hotfix
 - `scripts/AHFT-HPH-v38.8.0.pine` – base release
 - `library/ahft_utils.pine` – shared helper functions
-- `configs/baseline_v38.8r-4.pineconfig` – regression parameters
+- `configs/baseline_v38.8r-6.pineconfig` – regression parameters
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
 - `CHANGELOG.md` – version history

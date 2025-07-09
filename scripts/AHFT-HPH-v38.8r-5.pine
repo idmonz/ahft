@@ -1,5 +1,5 @@
 //@version=5
-import ahft_utils/1 as util
+import ahft_utils as util
 //@roadmap_tag v38.9.0-pine
 //@commit_hash 83385e3
 // ==============================================================================
