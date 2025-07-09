@@ -3,6 +3,7 @@
 > **Vision**  Harness on-chart online learning so that each expert becomes an
 > adaptive agent. The ensemble should reason, choose and size trades like a
 > discretionary desk while remaining fully executable in Pine v5.
+> **Note** : v38 line is frozen at tag **v38.9.0-pine**; all future work happens here.
 
 | Phase   | Codename | Objective | New Core Modules | Done-When & KPIs |
 | ------- | -------- | --------- | ---------------- | ---------------- |

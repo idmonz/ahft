@@ -11,17 +11,17 @@ jobs:
     strategy:
       matrix:
         symbol: [BINANCE:BTCUSDT, BINANCE:ETHUSDT, BINANCE:SOLUSDT]
-        tf: ["15"]
+        tf: ["1","5","15"]
     steps:
       - uses: actions/checkout@v3
       - name: Install tvscript-tester
         run: pip install tvscript-tester
       - name: Compile check
-        run: tvscript-tester scripts/AHFT-HPH-v38.8r-4.pine --compile-only
+        run: tvscript-tester scripts/AHFT-HPH-v38.8r-6.pine --compile-only
       - name: Run regression
         run: |
-          tvscript-tester scripts/AHFT-HPH-v38.8r-4.pine \
-            --config configs/baseline_v38.8r-4.pineconfig \
+          tvscript-tester scripts/AHFT-HPH-v38.8r-6.pine \
+            --config configs/baseline_v38.8r-6.pineconfig \
             --symbol ${{ matrix.symbol }} --timeframe ${{ matrix.tf }} \
             --from 2022-01-01 --to 2023-12-31 \
             --assert sharpe>=1.25 max_dd<=0.28 closed_trades>=300
