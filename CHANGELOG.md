@@ -1,4 +1,6 @@
 # Changelog
+## v38.7r-3 "Helios Nexus Patch 7 Update" - 2025-07-13
+- Added Pseudo-BO and Patch-Lite stubs for upcoming optimization modules.
 ## v38.7r-2 "Helios Nexus Patch 7 Hotfix" - 2025-07-13
 - Replaced unsupported `math.seed` with a custom LCG for compatibility.
 
