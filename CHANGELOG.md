@@ -1,4 +1,10 @@
 # Changelog
+## v38.8r-3 "Helios Nexus Patch 8 Hotfix 3" - 2025-07-17
+- Introduced dynamic weight floor based on drawdown
+- AIMRE sentinel threshold now auto-calibrates
+- Dashboard rows expanded for future LOMV stats
+- Removed unused pre_norm_total variable
+
 ## v38.8r-2 "Helios Nexus Patch 8 Hotfix 2" - 2025-07-16
 - Fixed weight floor logic so weights renormalize each bar
 - Raised AIMRE sentinel threshold to 3.0

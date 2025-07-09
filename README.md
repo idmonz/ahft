@@ -1,13 +1,14 @@
 # AHFT Hephaestus-Prime
 
 This repository hosts the Pine Script implementation and documentation for
-**AHFT – Hephaestus‑Prime**. The source code for the current version is located
 in `scripts/` and the project documents live under `docs/`.
+- `scripts/AHFT-HPH-v38.8r-3.pine` – Pine Script strategy for version 38.8r-3
 
 ## Layout
 - `scripts/AHFT-HPH-v38.8.0.pine` – Pine Script strategy for version 38.8.0
 - `scripts/AHFT-HPH-v38.8r-1.pine` – Pine Script strategy for version 38.8r-1
 - `scripts/AHFT-HPH-v38.8r-2.pine` – Pine Script strategy for version 38.8r-2
+- `scripts/AHFT-HPH-v38.8r-3.pine` – Pine Script strategy for version 38.8r-3
  - `scripts/AHFT-HPH-v38.7r-3.pine` – Pine Script strategy for version 38.7r-3
  - `scripts/AHFT-HPH-v38.7.0.pine` – Pine Script strategy for version 38.7.0
 - `scripts/AHFT-HPH-v38.7r-2.pine` – Pine Script strategy for version 38.7r-2
