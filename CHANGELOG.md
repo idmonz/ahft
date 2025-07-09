@@ -1,5 +1,9 @@
 # Changelog
 
+## v38.8r-4 "Helios Nexus Patch 8 Hotfix 4" - 2025-07-18
+- Fixed AIMRE sentinel scoping bug and added a minimum-sample guard
+- Added correlation-aware AOML penalty
+
 ## v38.8r-3 "Helios Nexus Patch 8 Hotfix 3" - 2025-07-17
 - Introduced dynamic weight floor based on drawdown
 - AIMRE sentinel threshold now auto-calibrates
