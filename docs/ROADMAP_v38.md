@@ -13,6 +13,7 @@
 | **v38.7.0**           | 2025‑07‑08 | Lagged OBI, deterministic seed hot‑patch                                                  |
 | **v38.8r‑3**          | 2025‑07‑09 | Dynamic weight floor, AIMRE auto‑threshold, QR‑DQN index fix                              |
 | **v38.8r‑4**          | 2025‑07‑18 | AIMRE bug‑fix, correlation‑aware AOML, QR‑DQN parametrisation, code modularisation        |
+| **v38.9.0**           | 2025-07-20 | Pine-only milestone complete; v39 starts |
 
 ---
 

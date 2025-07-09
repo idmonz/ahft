@@ -1,5 +1,7 @@
 # Changelog
 
+## v38.9.0 "Helios Nexus Pine milestone" - 2025-07-20
+- Final release of the v38 line; roadmaps continue with v39.
 ## v38.8r-4 "Helios Nexus Patch 8 Hotfix 4" - 2025-07-18
 - Fixed AIMRE sentinel scoping bug and added a minimum-sample guard
 - Added correlation-aware AOML penalty
