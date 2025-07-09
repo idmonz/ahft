@@ -100,4 +100,6 @@ On passing those gates, we lock the Pine side and start the external training/in
 
 *This plan keeps immediate progress visible in TradingView while leaving clean hooks for the heavier Python / ONNX stack.*
 
+Next steps are tracked in `docs/ROADMAP_v39.md`.
+
 © 2025 AHFT Labs – released under the AGPL‑3.0

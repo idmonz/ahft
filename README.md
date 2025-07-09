@@ -13,6 +13,8 @@ project documents live under `docs/`.
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
 - `CHANGELOG.md` – version history
+- `docs/ROADMAP_v38.md` – Helios Nexus milestone plan
+- `docs/ROADMAP_v39.md` – Hyperion Matrix roadmap
 
 Version 38.8.0 integrates the new LOMV and AIMRE engines, swaps to an IQN risk model and adds a HAR-RV volatility regime.
 Version 38.8r-1 fixes weight normalization for the LOMV module and adjusts the QR-DQN update index.
