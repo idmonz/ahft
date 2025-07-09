@@ -1,28 +1,60 @@
-# Helios Nexus Roadmap (v38)
+# Helios Nexus Road‑map  (v38 line)
 
+> **Updated:** 2025‑07‑09  |  Maintainers: *AHFT‑Core Guild*
 
-**Status**: Completed with the release of v38.0.0 on 2025-07-06. Patch v38.8r-3 adds a dynamic weight floor and AIMRE auto threshold. Patch v38.8r-1 fixed weight normalisation and QR‑DQN indexing. Patch v38.7r-3 adds Pseudo-BO and Patch-Lite stubs. Patch v38.7r-2 replaces the seed call for older builds. Patch v38.7r-1 fixed deterministic seed initialization. Patch v38.7.0 adds deterministic seeding, lagged OBI and a 4R take profit. Patch v38.6r-1 fixes a compile error in patch 6. Patch v38.6.0 introduces refined entry thresholds and leverage clamp. Patch v38.5.0 introduces a risk capsule and partial exits. Patch v38.4-r1 adds Bayesian tuning and transfer improvements. Patch v38.3.0 adds multi-symbol DistRL and commission-gate fixes; v38.2r-1 fixed commission handling and v38.2.0 refined risk controls.
+---
 
+### Release track
 
-The v38 major update, codenamed **"Helios Nexus"**, introduces a structured
-series of enhancements. Each phase has concrete goals and validation steps.
+| Tag                   | Date       | Summary                                                                                   |
+| --------------------- | ---------- | ----------------------------------------------------------------------------------------- |
+| **v38.0.0**           | 2025‑07‑06 | Helios Nexus GA – QR‑DQN kernel, MSGARCH‑GJR λ‑clamp, risk capsule, deterministic seeding |
+| **v38.6.0**           | 2025‑07‑07 | Refined entry thresholds, leverage clamp                                                  |
+| **v38.7.0**           | 2025‑07‑08 | Lagged OBI, deterministic seed hot‑patch                                                  |
+| **v38.8r‑3**          | 2025‑07‑09 | Dynamic weight floor, AIMRE auto‑threshold, QR‑DQN index fix                              |
+| **v38.8r‑4 *(next)*** | **TBD**    | AIMRE bug‑fix, correlation‑aware AOML, QR‑DQN parametrisation, code modularisation        |
 
-| Phase | Goal | Key Modules | Deliverables & Verification |
-| ---- | ---- | ----------- | --------------------------- |
-| **P-1** | Remove all `array.get` boundary errors | Safe array wrapper `safe_get(arr,i,def)` | LEAK-WATCH unit tests, full replay from 1m to 1D with no errors |
-| **P-2** | Distributional RL engine | Replace ε-Greedy skeleton with QR‑DQN; CVaR ε‑greedy option | Sharpe ≥ v37.8 +15% on BTCUSDT 15m back-test |
-| **P-3** | Regime model 2.0 | MSGARCH-GJR two-state volatility model feeding λ-scaler | Overnight gap MSE reduced 20% |
-| **P-4** | Bayesian Auto-Tune | Optuna/BoTorch hyperparameter pipeline | Out-of-sample Sharpe ≥ 0.75 × in-sample result |
-| **P-5** | Capital management | Drawdown-aware fractional Kelly κ(t) | MDD < 30% while preserving CAGR |
-| **P-6** | Multi-symbol transfer learning | Shared DistRL head for BTC, ETH, SOL | Additional symbols maintain Sharpe ≥ 1.2 |
-| **P-7** | Performance & deployment | ONNX/Wasm backend mock with GPU inference bench | 4H test executes 10× faster |
+---
 
-Core design notes:
+### Programme status matrix
 
-- **Safe array pattern** uses `safe_get` to guard every `array.get` call and avoid index errors across timeframes.
-- **Distributional RL to Risk Budget** – QR‑DQN quantiles feed λ‑Scheduler for CVaR based sizing.
-- **MSGARCH-GJR** states limit λ ranges: low-vol ≤ 1.2, high-vol ≥ 0.3.
-- **Adaptive κ-Kelly** – fractional κ shrinks with drawdown: κ(t)=κ₀·e^(−DD·φ).
-- **Bayesian Auto-Tune** – Optuna TPE converges within ~50 trials; optimal parameters exported to Pine inputs.
+| Phase   | Goal                             | Completion       | Notes                                                                            |
+| ------- | -------------------------------- | ---------------- | -------------------------------------------------------------------------------- |
+| **P‑1** | Safe‑array wrapper               | **✅**            | All `array.get` now routed through `f_safe_array_get` & unit replay tests green. |
+| **P‑2** | Distributional RL (QR‑DQN)       | **✅**            | 32‑quantile engine live; further parameterisation scheduled for r‑4.             |
+| **P‑3** | Regime model 2.0                 | **✅**            | MSGARCH‑GJR drives λ bounds (0.3–2.5).                                           |
+| **P‑4** | Bayesian Auto‑Tune pipeline      | **🟡 Partial**   | Thompson‑softmax & variant DB live; Optuna export CLI still WIP.                 |
+| **P‑5** | Drawdown‑aware Kelly κ(t)        | **✅**            | κ shrink & dynamic floor shipped in r‑3.                                         |
+| **P‑6** | Multi‑symbol DistRL transfer     | **✅**            | BTC / ETH / SOL enabled; weight `DISTRL_XFER_W` exposed.                         |
+| **P‑7** | ONNX / Wasm backend mock         | **🟡 Prototype** | Pine → Wasm PoC compiles; benchmark harness pending.                             |
+| **P‑8** | *Stabilisation & Modularisation* | **🚧 (r‑4)**     | AIMRE fix, expert‑corr penalty, QR‑DQN cfg input, regression CI.                 |
 
-Reference papers are listed in `docs/bibliography.bib`.
+> Legend: **✅ Done** · **🟡 Partial** · **🚧 In progress**
+
+---
+
+## Sprint r‑4  (ETA 2025‑07‑12)
+
+| ID      | Work‑item                                                       | Owner       | Acceptance test                                         |   |        |
+| ------- | --------------------------------------------------------------- | ----------- | ------------------------------------------------------- | - | ------ |
+| **S‑1** | **AIMRE sentinel patch** – correct scope leak, min‑sample guard | @quant‑fx   | Exits attributed to AIMRE ≥ 3 % in 2023 BTC‑15m replay  |   |        |
+| **S‑2** | Correlation‑aware AOML update                                   | @ai‑lambda  | Weight drift Δ ≤ 5 % when                               | ρ |  > 0.8 |
+| **S‑3** | QR‑DQN parameterisation (`NUM_Q`, LR decay)                     | @rl‑dev     | Back‑test Sharpe change ≤ ±2 % vs r‑3 baseline          |   |        |
+| **S‑4** | Codebase modular split (experts / risk / ui)                    | @core‑infra | Build passes, no perf regression (≤ 1 %)                |   |        |
+| **S‑5** | Regression CI docker pipeline                                   | @dev‑ops    | 3‑year walk‑forward finishes < 30 min inside GH‑Actions |   |        |
+| **S‑6** | Docs: "Risk Capsule Playbook"                                   | @docs‑team  | Merge‑request approved by guild lead                    |   |        |
+
+---
+
+## Looking ahead – v39 pre‑planning
+
+* **Adaptive Symbol Discovery** – automatic addition of new perp tickers with liquidity & latency filters.
+* **Transformer‑based latent encoder** replacing Patch‑TST (prototype branch `xform‑tst`).
+* **Real‑time WASM inference** on Kraken futures feed (target latency < 5 ms per bar).
+* **Portfolio‑level CVaR optimiser** for multi‑asset risk envelope.
+
+> *Suggestions & pull‑requests welcome – open an issue or ping us on #helios‑research.*
+
+---
+
+© 2025 AHFT Labs – released under the AGPL‑3.0
