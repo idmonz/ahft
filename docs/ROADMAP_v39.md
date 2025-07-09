@@ -1,5 +1,7 @@
 # Helios Nexus Roadmap – v39 "Hyperion Matrix"
 
+Sprint B-0 starts 2025-07-22
+
 > **Vision**  Harness on-chart online learning so that each expert becomes an
 > adaptive agent. The ensemble should reason, choose and size trades like a
 > discretionary desk while remaining fully executable in Pine v5.

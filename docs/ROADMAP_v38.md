@@ -14,8 +14,10 @@
 | **v38.8r‑3**          | 2025‑07‑09 | Dynamic weight floor, AIMRE auto‑threshold, QR‑DQN index fix                              |
 | **v38.8r‑4**          | 2025‑07‑18 | AIMRE bug‑fix, correlation‑aware AOML, QR‑DQN parametrisation, code modularisation        |
 | **v38.8r-5** | 2025-07-19 | Sentinel exit tweak, util import unification |
-| **v38.8r-6** | 2025-07-21 | Documentation sync, //@library_version 1.1 |
+| **v38.8r-6** | 2025-07-21 | ✅ Documentation sync, //@library_version 1.1 |
 | **v38.9.0-pine**           | 2025-07-20 | Pine-only milestone complete; v39 starts |
+
+Track closed at v38.9.0-pine.
 
 ---
 

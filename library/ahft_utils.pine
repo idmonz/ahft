@@ -1,4 +1,5 @@
-//@library_version 1.1
+//@library_version 1.2
+// Locked for Helios Nexus
 //@version=5
 library("ahft_utils")
 

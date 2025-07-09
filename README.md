@@ -1,15 +1,16 @@
 # AHFT Hephaestus-Prime
+**Current dev → v39 (Hyperion Matrix)**
 
 This repository hosts the Pine Script implementation and documentation for the
 AHFT Hephaestus-Prime project. Strategy scripts live in `scripts/` and the
 project documents live under `docs/`.
 
 ## Layout
-- `scripts/AHFT-HPH-v38.8r-6.pine` – current strategy release
+- `scripts/AHFT-HPH-v38.9.0-pine.pine` – current strategy release
 - `scripts/AHFT-HPH-v38.8r-1.pine` – first hotfix
 - `scripts/AHFT-HPH-v38.8.0.pine` – base release
 - `library/ahft_utils.pine` – shared helper functions
-- `configs/baseline_v38.8r-6.pineconfig` – regression parameters
+- `configs/baseline_v38.9.0.pineconfig` – regression parameters
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
 - `CHANGELOG.md` – version history
@@ -34,6 +35,30 @@ The v38 release, codenamed "Helios Nexus", is detailed in
 `docs/ROADMAP_v38.md`.
 
 ## Strategy index
+| File | Version | Date |
+|------|---------|------|
+| `AHFT-HPH-v38.9.0-pine.pine` | `38.9` | 2025-07-09 |
+| `AHFT-HPH-v38.8r-6.pine` | `38.8r-6` | 2025-07-09 |
+| `AHFT-HPH-v38.8r-5.pine` | `38.8r-5` | 2025-07-09 |
+| `AHFT-HPH-v38.8r-4.pine` | `38.8r-4` | 2025-07-09 |
+| `AHFT-HPH-v38.8r-3.pine` | `38.8r-3` | 2025-07-09 |
+| `AHFT-HPH-v38.8r-2.pine` | `38.8r-2` | 2025-07-09 |
+| `AHFT-HPH-v38.8r-1.pine` | `38.8r-1` | 2025-07-09 |
+| `AHFT-HPH-v38.8.0.pine` | `38.8` | 2025-07-09 |
+| `AHFT-HPH-v38.7r-3.pine` | `38.7r-3` | 2025-07-09 |
+| `AHFT-HPH-v38.7r-2.pine` | `38.7r-2` | 2025-07-09 |
+| `AHFT-HPH-v38.7.0.pine` | `38.7` | 2025-07-09 |
+| `AHFT-HPH-v38.6r-1.pine` | `38.6r-1` | 2025-07-09 |
+| `AHFT-HPH-v38.6.0.pine` | `38.6` | 2025-07-09 |
+| `AHFT-HPH-v38.5.0.pine` | `38.5` | 2025-07-09 |
+| `AHFT-HPH-v38.4-r1.pine` | `38.4-` | 2025-07-09 |
+| `AHFT-HPH-v38.3.0.pine` | `38.3` | 2025-07-09 |
+| `AHFT-HPH-v38.2r-1.pine` | `38.2r-1` | 2025-07-09 |
+| `AHFT-HPH-v38.2.0.pine` | `38.2` | 2025-07-09 |
+| `AHFT-HPH-v38.1.0.pine` | `38.1` | 2025-07-09 |
+| `AHFT-HPH-v38.0.0.pine` | `38.0` | 2025-07-09 |
+| `AHFT-HPH-v37.9.4.pine` | `37.9` | 2025-07-09 |
+
 | File | Version | Date |
 |------|---------|------|
 | `AHFT-HPH-v38.8r-6.pine` | `38.8r-6` | 2025-07-09 |
