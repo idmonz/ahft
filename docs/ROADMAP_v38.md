@@ -61,8 +61,8 @@
 
 6. **Regression pack** – ✅
 
-   * Pre-save parameter sets (baseline v38.8r-3) in the repo as `.pineconfig`.
-   * Add GitHub Action that runs the strategy with `tvscript-tester` on BTC 15 m 2022-23 and asserts:
+   * Pre-save parameter sets (baseline v38.8r-4) in the repo as `.pineconfig`.
+   * Add GitHub Action that runs the strategy with `tvscript-tester` on BTC 1 m / 5 m / 15 m 2022-23 and asserts:
 
      ```yaml
      sharpe:  >= 1.25

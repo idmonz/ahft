@@ -8,6 +8,9 @@ on:
 jobs:
   pine-ci:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tf: ["1", "5", "15"]
     steps:
       - uses: actions/checkout@v3
       - name: Install tvscript-tester
@@ -15,7 +18,7 @@ jobs:
       - name: Run regression
         run: |
           tvscript-tester scripts/AHFT-HPH-v38.8r-4.pine \
-            --config configs/baseline_v38.8r-3.pineconfig \
-            --symbol BINANCE:BTCUSDT --timeframe 15 \
+            --config configs/baseline_v38.8r-4.pineconfig \
+            --symbol BINANCE:BTCUSDT --timeframe ${{ matrix.tf }} \
             --from 2022-01-01 --to 2023-12-31 \
             --assert sharpe>=1.25 max_dd<=0.28 closed_trades>=300

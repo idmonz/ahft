@@ -1,5 +1,7 @@
 //@version=5
 import ahft_utils.*
+//@roadmap_tag v38.9.0-pine
+//@commit_hash 6d737983
 // ==============================================================================
 
 // 📚 프로젝트: AHFT - Hephaestus-Prime (v38.8r-4) "Helios Nexus – Risk Capsule"
@@ -83,6 +85,7 @@ EPSILON_BAR_LIMIT         = input.int(30, "ε: Bar Limit", group = group_learnin
 EPSILON_PROB              = input.float(0.05, "ε: Probability", group = group_learning, minval=0.01, maxval=0.1, step=0.01)
 NUM_Q_INPUT               = input.int(32, "DistRL Num Q", minval=16, maxval=64, group=group_learning)
 show_distrl_debug         = input.bool(false, "Debug DistRL", group=group_learning)
+CALIB_BLOB                = input.string("", "Optuna Calib JSON", group=group_learning)
 
 group_aimre = "📈 AIMRE Sentinel"
 AIMRE_OI_WEIGHT  = input.float(0.7, "AIMRE OI wt", group=group_aimre)
@@ -128,6 +131,7 @@ HARD_STOP_PCT             = input.float(5.0,  "Hard Equity Stop %", minval=1.0, 
 group_visual               = "🎨 UI"
 show_dashboard             = input.bool(true,  "Show Dashboard",            group = group_visual)
 dashboard_position_input   = input.string("Bottom Right", "Dash Pos", options = ["Top Left","Top Right","Bottom Left","Bottom Right"], group = group_visual)
+DEBUG_MODE                 = input.bool(false, "TV_DEBUG", group=group_visual)
 
 //───────────────────────────────────────────────────────────────────────────────
 // 2. GLOBAL VARs  (헌장 제2조 & 제9조)
@@ -178,6 +182,14 @@ varip float micro_leverage_weight    = 1.0
 varip float msgarch_weight           = 1.0
 varip float lomv_weight             = 1.0
 varip float dynamic_floor           = 0.02
+var float aoml_beta_tuned = AOML_BETA
+if barstate.isfirst and str.length(CALIB_BLOB) > 2
+    colon = str.indexof(CALIB_BLOB, ":")
+    close = str.indexof(CALIB_BLOB, "}", colon)
+    val_str = str.substring(CALIB_BLOB, colon + 1, close)
+    parsed = float(str.tonumber(val_str))
+    if not na(parsed)
+        aoml_beta_tuned := parsed
 
 //–– Performance tracking
 varip array<float> trade_pnls        = array.new_float()
@@ -758,6 +770,11 @@ f_pseudo_bo_update() =>
 f_patch_lite_update() =>
     na
 
+// == ONNX INFERENCE STUB ==
+f_onnx_inference(vec) =>
+    // TODO ONNX_INFERENCE()
+    na
+
 //───────────────────────────────────────────────────────────────────────────────
 
 if barstate.isfirst
@@ -1162,7 +1179,7 @@ if is_trade_closed_event
     err = trade_value_at_risk > 0 ? (last_pnl / trade_value_at_risk) * (1 - cvar_rank_learning) : 0
     err_scale = array.size(trade_pnls) > 10 and nz(array.median(trade_pnls)) != 0 ? 10 / math.abs(array.median(trade_pnls)) : 10
     err := err * err_scale
-    lr_array = f_cosine_lr(AOML_BETA, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
+    lr_array = f_cosine_lr(aoml_beta_tuned, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
     adaptive_beta = f_safe_array_get(lr_array, 0, MIN_BETA)
     sgdr_curr_t0 := f_safe_array_get(lr_array, 1, sgdr_curr_t0)
     sgdr_next_reset := f_safe_array_get(lr_array, 2, sgdr_next_reset)
@@ -1256,7 +1273,7 @@ if show_dashboard and barstate.islastconfirmedhistory
     table.cell(main_dashboard, 0, 13, "Position Status", text_color = color.gray)
     table.cell(main_dashboard, 1, 13, strategy.position_size != 0 ? (strategy.position_size > 0 ? "LONG" : "SHORT") : "FLAT")
 
-    lr_arr_dash = f_cosine_lr(AOML_BETA, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
+    lr_arr_dash = f_cosine_lr(aoml_beta_tuned, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
     adaptive_beta_val = f_safe_array_get(lr_arr_dash, 0, MIN_BETA)
     table.cell(main_dashboard, 0, 14, "Adaptive Beta", text_color = color.gray)
     table.cell(main_dashboard, 1, 14, str.tostring(nz(adaptive_beta_val, MIN_BETA), "#.####"))
@@ -1266,4 +1283,6 @@ if show_dashboard and barstate.islastconfirmedhistory
 //───────────────────────────────────────────────────────────────────────────────
 plot(na)
 plot(show_distrl_debug ? last_q_update : na, color=color.orange, title="DistRL Debug")
+if DEBUG_MODE and barstate.islast
+    label.new(bar_index, high, "λ=" + str.tostring(lambda_risk_budget, "#.##"))
 
