@@ -1,4 +1,8 @@
 # Changelog
+## v38.8.0 "Helios Nexus Patch 8" - 2025-07-14
+- Integrated Langlands‑Operadic Möbius Vortex and AIMRE sentinel modules.
+- Swapped QR‑DQN head for Implicit Quantile Network with 32 τ grid.
+- Added HAR‑RV based TP/SL regime mapping and updated deterministic RNG hooks.
 ## v38.7r-3 "Helios Nexus Patch 7 Update" - 2025-07-13
 - Added Pseudo-BO and Patch-Lite stubs for upcoming optimization modules.
 ## v38.7r-2 "Helios Nexus Patch 7 Hotfix" - 2025-07-13
