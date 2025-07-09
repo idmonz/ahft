@@ -87,6 +87,15 @@ NUM_Q_INPUT               = input.int(32, "DistRL Num Q", minval=16, maxval=64, 
 show_distrl_debug         = input.bool(false, "Debug DistRL", group=group_learning)
 CALIB_BLOB                = input.string("", "Optuna Calib JSON", group=group_learning)
 
+[e_prob_rt, bar_lim_rt, oi_rt, fr_rt, lomv_rt, win_rt, q_rt] = f_parse_calib_blob(CALIB_BLOB)
+EPSILON_PROB_RT     = e_prob_rt
+EPSILON_BAR_LIMIT_RT = bar_lim_rt
+AIMRE_OI_WEIGHT_RT   = oi_rt
+AIMRE_FR_WEIGHT_RT   = fr_rt
+AIMRE_LOMV_WEIGHT_RT = lomv_rt
+AIMRE_WINDOW_RT      = win_rt
+num_q_rt             = int(q_rt)
+
 group_aimre = "📈 AIMRE Sentinel"
 AIMRE_OI_WEIGHT  = input.float(0.7, "AIMRE OI wt", group=group_aimre)
 AIMRE_FR_WEIGHT  = input.float(0.3, "AIMRE FR wt", group=group_aimre)
@@ -281,6 +290,39 @@ can_make_decision_event = bar_index > MIN_BARS_FOR_TRADING and is_new_bar_event 
 // 4. FUNCTIONS (헌장 제8조 & 제8조의2)
 //───────────────────────────────────────────────────────────────────────────────
 // Utility functions are imported from ahft_utils
+
+// Parse Optuna calibration blob into runtime parameters
+f_parse_calib_blob(blob) =>
+    eps_p = EPSILON_PROB
+    bar_lim = EPSILON_BAR_LIMIT
+    oi_wt = AIMRE_OI_WEIGHT
+    fr_wt = AIMRE_FR_WEIGHT
+    lomv_wt = AIMRE_LOMV_WEIGHT
+    win = AIMRE_WINDOW
+    qnum = NUM_Q_INPUT
+    clean = str.replace_all(str.replace_all(blob, "{", ""), "}", "")
+    pairs = str.split(clean, ",")
+    for i = 0 to array.size(pairs) - 1
+        kv = str.split(str.trim(array.get(pairs, i)), ":")
+        if array.size(kv) == 2
+            key = str.replace_all(str.trim(array.get(kv, 0)), '"', "")
+            val = str.tonumber(str.replace_all(str.trim(array.get(kv, 1)), '"', ""))
+            if key == "EPSILON_PROB"
+                eps_p := float(val)
+            if key == "EPSILON_BAR_LIMIT"
+                bar_lim := int(val)
+            if key == "AIMRE_OI_WEIGHT"
+                oi_wt := float(val)
+            if key == "AIMRE_FR_WEIGHT"
+                fr_wt := float(val)
+            if key == "AIMRE_LOMV_WEIGHT"
+                lomv_wt := float(val)
+            if key == "AIMRE_WINDOW"
+                win := int(val)
+            if key == "NUM_Q"
+                qnum := int(val)
+    array.from(eps_p, bar_lim, oi_wt, fr_wt, lomv_wt, win, qnum)
+
 f_choose_variant() =>
     tot = 0.0
     scores = array.new_float()
@@ -535,7 +577,7 @@ f_msgarch_regime_proxy(vol_len, trend_len, asym_coef) =>
 
 f_aimre_sentinel(oi_z, fr, lomv) =>
     weight = math.abs(fr) > 0.001 ? 1.0 : 0.0
-    math.abs(oi_z) * AIMRE_OI_WEIGHT + weight * AIMRE_FR_WEIGHT + math.abs(lomv) * AIMRE_LOMV_WEIGHT
+    math.abs(oi_z) * AIMRE_OI_WEIGHT_RT + weight * AIMRE_FR_WEIGHT_RT + math.abs(lomv) * AIMRE_LOMV_WEIGHT_RT
 
 f_calculate_beta_zscore(src, benchmark_src, len) =>
     ret_src = src[1] == 0 ? 0.0 : src / src[1] - 1
@@ -919,10 +961,10 @@ if can_make_decision_event
     
     bars_since_last_trade = ta.barssince(is_trade_closed_event)
     recent_no_trade = nz(bars_since_last_trade)
-    is_exploration_time = USE_EPSILON_GREEDY and recent_no_trade > EPSILON_BAR_LIMIT
+    is_exploration_time = USE_EPSILON_GREEDY and recent_no_trade > EPSILON_BAR_LIMIT_RT
     
     rand_val = f_rand(0.0, 1.0)
-    eps_prob_dyn = math.min(0.30, EPSILON_PROB * recent_no_trade / 50.0)
+    eps_prob_dyn = math.min(0.30, EPSILON_PROB_RT * recent_no_trade / 50.0)
     if CVAR_EPSILON
         eps_prob_dyn := eps_prob_dyn * 0.5 * (historical_cvar95 / (historical_var95 + 1e-9))
     if bar_index < WARMUP_BARS
@@ -1066,7 +1108,7 @@ if is_in_trade_event and barstate.isconfirmed
     exit_comment = ""
     sentinel_score := f_aimre_sentinel(oi_zscore, fr_val, lomv_score)
     if not exit_now
-        f_push_cap(sentinel_hist, sentinel_score, AIMRE_WINDOW)
+        f_push_cap(sentinel_hist, sentinel_score, AIMRE_WINDOW_RT)
         if array.size(sentinel_hist) > 30
             sentinel_thresh := ta.percentile(sentinel_hist, 95) + 0.1
         else

@@ -27,6 +27,7 @@ Version 38.8r-2 corrects weight floor placement and raises the AIMRE sentinel th
 
 Version 38.8r-3 introduces a dynamic weight floor and auto-calibrated AIMRE threshold.
 Version 38.8r-4 fixes the AIMRE sentinel bug and adds correlation-aware AOML.
+Version 38.9.0 finalises the Pine track and parses Optuna calibration blobs via `calib_blob`.
 
 Version 38.7r-3 introduces stubs for Pseudo-BO and Patch-Lite to prepare upcoming optimization and fine-tuning modules.
 Version 38.7r-2 fixes deterministic seed initialization after a compile error. Version 38.7.0 introduces deterministic random seeding, lagged order-book imbalance and a final take profit at 4R. Version 38.6r-1 fixes a function definition error in v38.6.0. Version 38.6.0 tweaks risk thresholds with a 0.4% risk floor, dynamic leverage clamp and order-book feature. Version 38.5.0 introduces a risk capsule, partial exits and expanded Bayesian variants. Version 38.4-r1 introduces Bayesian parameter tuning and improved DistRL transfer. Version 38.3.0 adds multi-symbol transfer learning and size-aware commission gating. Version 38.2r-1 fixes commission threshold calculation. The original 38.2.0 release added commission-aware entry gating and refined meta-exit logic. Version 38.1.0 ("Helios Nexus Patch") adds refined risk controls.
