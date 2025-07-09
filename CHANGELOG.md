@@ -4,10 +4,6 @@
 - Helios Nexus Pine milestone freeze
 - CALIB_BLOB 파싱 실패 시 런타임 기본값으로 자동 폴백
 - dist_arr 동적 리사이즈가 NUM_Q 변경을 1 bar 이내에 반영
-## v38.8r-6 "Helios Nexus Hotfix 6" – 2025-07-23
-- CALIB_BLOB 파싱 실패 시 런타임 기본값으로 자동 폴백
-- dist_arr 동적 리사이즈가 NUM_Q 변경을 1 bar 이내에 반영
-
 ## v38.8r-5 "Helios Nexus Hotfix 5" – 2025-07-22
 - dist_arr resize guard 추가로 QR-DQN 버퍼 오버런 방지
 - ahft_utils 라이브러리 버전을 1.0으로 고정

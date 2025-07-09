@@ -4,9 +4,9 @@ import pathlib, re, sys, datetime
 repo = pathlib.Path(__file__).resolve().parent.parent
 scripts = sorted(repo.glob("scripts/AHFT-HPH-v*.pine"), key=lambda p: p.name, reverse=True)
 table = ["| File | Version | Date |","|------|---------|------|"]
-rx = re.compile(r"v(\d+\.\d+r?-?\d?)")
+rx = re.compile(r"AHFT-HPH-(v[0-9][\w.-]*)\.pine")
 for p in scripts:
-    ver = rx.search(p.name).group(1)
+    ver = rx.search(p.name).group(1)[1:]
     date = datetime.date.today().isoformat()
     table.append(f"| `{p.name}` | `{ver}` | {date} |")
 readme = repo/"README.md"
