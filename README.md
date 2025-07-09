@@ -5,13 +5,13 @@ AHFT Hephaestus-Prime project. Strategy scripts live in `scripts/` and the
 project documents live under `docs/`.
 
 ## Layout
-- `scripts/AHFT-HPH-v38.8r-4.pine` – current strategy release
-- `scripts/AHFT-HPH-v38.8r-3.pine` – previous hotfix
+- `scripts/AHFT-HPH-v38.8r-5.pine` – current strategy release
+- `scripts/AHFT-HPH-v38.8r-4.pine` – previous hotfix
 - `scripts/AHFT-HPH-v38.8r-2.pine` – earlier hotfix
 - `scripts/AHFT-HPH-v38.8r-1.pine` – first hotfix
 - `scripts/AHFT-HPH-v38.8.0.pine` – base release
 - `library/ahft_utils.pine` – shared helper functions
-- `configs/baseline_v38.8r-4.pineconfig` – regression parameters
+- `configs/baseline_v38.8r-5.pineconfig` – regression parameters
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
 - `CHANGELOG.md` – version history
@@ -27,6 +27,8 @@ Version 38.8r-2 corrects weight floor placement and raises the AIMRE sentinel th
 
 Version 38.8r-3 introduces a dynamic weight floor and auto-calibrated AIMRE threshold.
 Version 38.8r-4 fixes the AIMRE sentinel bug and adds correlation-aware AOML.
+Version 38.8r-5 adjusts the DistRL lambda quantile and moves beta sampling to the
+shared utility library.
 Version 38.9.0 finalises the Pine track and parses Optuna calibration blobs via `calib_blob`.
 
 Version 38.7r-3 introduces stubs for Pseudo-BO and Patch-Lite to prepare upcoming optimization and fine-tuning modules.

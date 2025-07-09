@@ -16,6 +16,13 @@ f_push_cap(arr, val, max_len) =>
     array.push(arr, val)
     arr
 
+f_rand_beta(a, b) =>
+    u1 = math.max(1e-9, math.min(1 - 1e-9, math.random()))
+    u2 = math.max(1e-9, math.min(1 - 1e-9, math.random()))
+    v = math.pow(u1, 1 / a)
+    w = math.pow(u2, 1 / b)
+    v / (v + w)
+
 
 f_resize(arr, new_len, filler) =>
     while array.size(arr) > new_len

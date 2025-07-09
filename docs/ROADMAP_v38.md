@@ -1,6 +1,6 @@
 # Helios Nexus Road‑map  (v38 line)
 
-> **Updated:** 2025‑07‑20  |  Maintainers: *AHFT‑Core Guild*
+> **Updated:** 2025‑07‑21  |  Maintainers: *AHFT‑Core Guild*
 
 ---
 
@@ -13,6 +13,7 @@
 | **v38.7.0**           | 2025‑07‑08 | Lagged OBI, deterministic seed hot‑patch                                                  |
 | **v38.8r‑3**          | 2025‑07‑09 | Dynamic weight floor, AIMRE auto‑threshold, QR‑DQN index fix                              |
 | **v38.8r‑4**          | 2025‑07‑18 | AIMRE bug‑fix, correlation‑aware AOML, QR‑DQN parametrisation, code modularisation        |
+| **v38.8r‑5**          | 2025‑07‑21 | DistRL lambda bug-fix, utils library update                                               |
 | **v38.9.0**           | 2025-07-20 | Pine-only milestone complete; v39 starts |
 
 ---
@@ -61,7 +62,7 @@
 
 6. **Regression pack** – ✅
 
-   * Pre-save parameter sets (baseline v38.8r-4) in the repo as `.pineconfig`.
+   * Pre-save parameter sets (baseline v38.8r-5) in the repo as `.pineconfig`.
    * Add GitHub Action that runs the strategy with `tvscript-tester` on BTC 1 m / 5 m / 15 m 2022-23 and asserts:
 
      ```yaml
