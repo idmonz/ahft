@@ -1,4 +1,7 @@
 # Changelog
+## v38.8r-1 "Helios Nexus Patch 8 Hotfix" - 2025-07-15
+- Fixed weight normalisation for the new LOMV engine and corrected QR-DQN index modulo.
+
 ## v38.8.0 "Helios Nexus Patch 8" - 2025-07-14
 - Integrated Langlands‑Operadic Möbius Vortex and AIMRE sentinel modules.
 - Swapped QR‑DQN head for Implicit Quantile Network with 32 τ grid.
