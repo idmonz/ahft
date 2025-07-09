@@ -39,27 +39,27 @@
 
 ## Concrete TODO list (Pine-only sprint)
 
-1. **Modularise helper file**
+1. **Modularise helper file** – ✅
    Create `library/ahft_utils.pine` for: safe array, clamp, z-score, percentile, etc.
    → Easier to freeze the API before external binding.
 
-2. **Replace magic numbers with `const`**
+2. **Replace magic numbers with `const`** – ✅
    Particularly the AIMRE sentinel blend weights; expose as `input.float` with sensible defaults.
 
-3. **AIMRE auto-threshold polishing**
+3. **AIMRE auto-threshold polishing** – ✅
 
    * Maintain a rolling `sentinel_hist` length = `input.int("AIMRE Window",200)`
    * Compute percentile with `ta.percentile` once per bar to avoid unnecessary CPU.
 
-4. **DistRL buffer sanitation**
+4. **DistRL buffer sanitation** – ✅
 
    * Clip `rew` into ±5 σ to prevent exploding quantiles.
    * Add `plot(series=dist_arr[ct_count % NUM_Q])` behind `input.bool("Debug DistRL", false)`.
 
-5. **Weight-floor hot-reload**
+5. **Weight-floor hot-reload** – ✅
    Dynamic floor already added; ensure it survives `strategy.reset()`. Wrap in `varip`.
 
-6. **Regression pack**
+6. **Regression pack** – ✅
 
    * Pre-save parameter sets (baseline v38.8r-3) in the repo as `.pineconfig`.
    * Add GitHub Action that runs the strategy with `tvscript-tester` on BTC 15 m 2022-23 and asserts:
@@ -70,7 +70,7 @@
      closed_trades: >= 300
      ```
 
-7. **Documentation pass**
+7. **Documentation pass** – ✅
    Update `docs/Helios_Nexus_Pine.md` with:
 
    * “Inside-TV” architecture diagram

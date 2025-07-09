@@ -10,12 +10,14 @@ project documents live under `docs/`.
 - `scripts/AHFT-HPH-v38.8r-2.pine` – earlier hotfix
 - `scripts/AHFT-HPH-v38.8r-1.pine` – first hotfix
 - `scripts/AHFT-HPH-v38.8.0.pine` – base release
+- `library/ahft_utils.pine` – shared helper functions
+- `configs/baseline_v38.8r-3.pineconfig` – regression parameters
 - `docs/PROJECT.md` – background, architecture and user guides
 - `docs/CHARTER.md` – development doctrine and historical notes
 - `CHANGELOG.md` – version history
 - `docs/ROADMAP_v38.md` – Helios Nexus milestone plan
 - `docs/ROADMAP_v39.md` – Hyperion Matrix roadmap
-The v38 line is complete with v38.9.0.
+The v38 line is finalised at **v38.9.0-pine**.
 Development for v39 follows the Hyperion Matrix roadmap.
 
 Version 38.8.0 integrates the new LOMV and AIMRE engines, swaps to an IQN risk model and adds a HAR-RV volatility regime.

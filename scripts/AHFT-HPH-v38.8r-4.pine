@@ -1,4 +1,5 @@
 //@version=5
+import ahft_utils.*
 // ==============================================================================
 
 // 📚 프로젝트: AHFT - Hephaestus-Prime (v38.8r-4) "Helios Nexus – Risk Capsule"
@@ -80,6 +81,14 @@ USE_PSEUDO_BO     = input.bool(false, "◎ Bayesian-Lite", group=group_learning)
 USE_PATCH_LITE    = input.bool(false, "◎ Patch-Lite", group=group_learning)
 EPSILON_BAR_LIMIT         = input.int(30, "ε: Bar Limit", group = group_learning)
 EPSILON_PROB              = input.float(0.05, "ε: Probability", group = group_learning, minval=0.01, maxval=0.1, step=0.01)
+NUM_Q_INPUT               = input.int(32, "DistRL Num Q", minval=16, maxval=64, group=group_learning)
+show_distrl_debug         = input.bool(false, "Debug DistRL", group=group_learning)
+
+group_aimre = "📈 AIMRE Sentinel"
+AIMRE_OI_WEIGHT  = input.float(0.7, "AIMRE OI wt", group=group_aimre)
+AIMRE_FR_WEIGHT  = input.float(0.3, "AIMRE FR wt", group=group_aimre)
+AIMRE_LOMV_WEIGHT = input.float(0.5, "AIMRE LOMV wt", group=group_aimre)
+AIMRE_WINDOW     = input.int(200, "AIMRE Window", group=group_aimre)
 
 //▬▬▬ (D) RISK ▬▬▬
 group_risk                = "🛡️  Risk & Sizing Engine"
@@ -168,6 +177,7 @@ varip float micro_volatility_weight  = 1.0
 varip float micro_leverage_weight    = 1.0
 varip float msgarch_weight           = 1.0
 varip float lomv_weight             = 1.0
+varip float dynamic_floor           = 0.02
 
 //–– Performance tracking
 varip array<float> trade_pnls        = array.new_float()
@@ -199,8 +209,9 @@ var array<float> goertzel_s1         = array.new_float(5, 0.)
 var array<float> goertzel_s2         = array.new_float(5, 0.)
 
 //–– DistRL storage
-int NUM_Q = 32
+int NUM_Q = NUM_Q_INPUT
 var array<float> dist_arr            = array.new_float(NUM_Q, 0.)
+varip float last_q_update            = 0.0
 
 //–– Bayesian search storage
 varip array<float> bayes_alpha  = array.new_float()
@@ -257,47 +268,7 @@ can_make_decision_event = bar_index > MIN_BARS_FOR_TRADING and is_new_bar_event 
 //───────────────────────────────────────────────────────────────────────────────
 // 4. FUNCTIONS (헌장 제8조 & 제8조의2)
 //───────────────────────────────────────────────────────────────────────────────
-// ★★★ v37.9.2 PATCH: 보고서 제안에 따라 안전한 배열 접근자 추가 (P0) ★★★
-f_safe_array_get(arr, idx, def) =>
-    idx >= 0 and idx < array.size(arr) ? array.get(arr, idx) : def
-
-f_normalize(x) => 
-    nz(math.max(-1.0, math.min(1.0, x)))
-f_getTablePosition(p) => 
-    p=="Top Left"?position.top_left:p=="Top Right"?position.top_right:p=="Bottom Left"?position.bottom_left:position.bottom_right
-
-//–– Math helpers
-f_clamp(x, a, b) => 
-    math.max(a, math.min(b, x))
-f_tanh(x) => 
-    (math.exp(x)-math.exp(-x)) / (math.exp(x)+math.exp(-x))
-f_frac(x) => 
-    x - math.floor(x)
-
-//–– Array resize (custom, Pine5엔 array.resize 없음)
-f_resize(arr, n, fill) =>
-    if array.size(arr) < n
-        for _ = 0 to n - array.size(arr) - 1
-            array.push(arr, fill)
-    else
-        while array.size(arr) > n
-            array.pop(arr)
-    arr
-
-//–– Random index (pure Fn, 헌장 7조 준수)
-rand_idx(maxN) =>
-    seed = f_frac(math.sin(float(bar_index) * 12.9898 + float(time) * 6.28318) * 43758.5453)
-    int(math.floor(seed * maxN))
-
-//–– Beta random generator (Marsaglia)
-f_rand_beta(a, b) =>
-    u1 = f_rand(0.0, 1.0)
-    u2 = f_rand(0.0, 1.0)
-    v = math.pow(u1, 1 / a)
-    w = math.pow(u2, 1 / b)
-    v / (v + w)
-
-//–– Thompson-sampling chooser
+// Utility functions are imported from ahft_utils
 f_choose_variant() =>
     tot = 0.0
     scores = array.new_float()
@@ -552,7 +523,7 @@ f_msgarch_regime_proxy(vol_len, trend_len, asym_coef) =>
 
 f_aimre_sentinel(oi_z, fr, lomv) =>
     weight = math.abs(fr) > 0.001 ? 1.0 : 0.0
-    math.abs(oi_z) * 0.7 + weight * 0.3 + math.abs(lomv) * 0.5
+    math.abs(oi_z) * AIMRE_OI_WEIGHT + weight * AIMRE_FR_WEIGHT + math.abs(lomv) * AIMRE_LOMV_WEIGHT
 
 f_calculate_beta_zscore(src, benchmark_src, len) =>
     ret_src = src[1] == 0 ? 0.0 : src / src[1] - 1
@@ -744,12 +715,16 @@ f_calculate_cvar_constrained_kelly(w, p, cvar_hist, tau) =>
     math.max(0, math.min(f, 1))
 
 f_update_qrdqn(rew) =>
+    sigma = math.max(1e-6, ta.stdev(dist_arr, array.size(dist_arr)))
+    rew_clamped = f_clamp(rew, -5 * sigma, 5 * sigma)
     for i = 0 to array.size(dist_arr) - 1
         old = f_safe_array_get(dist_arr, i, 0.0)
         array.set(dist_arr, i, old * QRDQN_DECAY)
     idx = ct_count % NUM_Q
     val = f_safe_array_get(dist_arr, idx, 0.0)
-    array.set(dist_arr, idx, val + (1 - QRDQN_DECAY) * rew)
+    val := val + (1 - QRDQN_DECAY) * rew_clamped
+    array.set(dist_arr, idx, val)
+    last_q_update := val
 
 f_array_percentile(arr, pct) =>
     if array.size(arr) == 0
@@ -1074,7 +1049,7 @@ if is_in_trade_event and barstate.isconfirmed
     exit_comment = ""
     sentinel_score := f_aimre_sentinel(oi_zscore, fr_val, lomv_score)
     if not exit_now
-        f_push_cap(sentinel_hist, sentinel_score, 200)
+        f_push_cap(sentinel_hist, sentinel_score, AIMRE_WINDOW)
         if array.size(sentinel_hist) > 30
             sentinel_thresh := ta.percentile(sentinel_hist, 95) + 0.1
         else
@@ -1202,7 +1177,7 @@ if is_trade_closed_event
     micro_leverage_weight := f_update_weight(micro_leverage_weight, err, micro_leverage_score[1], adaptive_beta)
     msgarch_weight := f_update_weight(msgarch_weight, err, msgarch_score[1], adaptive_beta)
     lomv_weight    := f_update_weight(lomv_weight, err, lomv_score[1], adaptive_beta)
-    dynamic_floor = f_clamp(0.02 * math.exp(-rolling_mdd * DRAWDOWN_PHI), 0.02, 0.07)
+    dynamic_floor := f_clamp(0.02 * math.exp(-rolling_mdd * DRAWDOWN_PHI), 0.02, 0.07)
     functoriality_weight := math.max(dynamic_floor, functoriality_weight)
     macro_trend_weight := math.max(dynamic_floor, macro_trend_weight)
     final_total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight
@@ -1290,4 +1265,5 @@ if show_dashboard and barstate.islastconfirmedhistory
 // 7. DUMMY PLOT (for overlay=true)
 //───────────────────────────────────────────────────────────────────────────────
 plot(na)
+plot(show_distrl_debug ? last_q_update : na, color=color.orange, title="DistRL Debug")
 
