@@ -1,7 +1,7 @@
 //@version=5
 // ==============================================================================
 
-// 📚 프로젝트: AHFT - Hephaestus-Prime (v38.7r-1) "Helios Nexus – Risk Capsule"
+// 📚 프로젝트: AHFT - Hephaestus-Prime (v38.7r-2) "Helios Nexus – Risk Capsule"
 // 🎯 목표: v38 Helios Nexus 로드맵 기능 구현.
 //          - Safe array get 패턴 정식 채택.
 //          - QR‑DQN DistRL 및 CVaR ε‑Greedy 옵션.
@@ -9,10 +9,10 @@
 //          - Bayesian Auto-Tune과 κ(t)=κ₀·e^(−DD·φ) 적용.
 //          - Risk capsule sizing and partial exit routine.
 //          - 다중 심볼 DistRL, ONNX/Wasm 백엔드 모의.
-// 📑 AUDIT v38.7r-1: Deterministic seeding and lagged OBI feature.
+// 📑 AUDIT v38.7r-2: Deterministic seeding and lagged OBI feature.
 // ==============================================================================
 
-strategy("AHFT - Hephaestus-Prime (v38.7r-1)", "AHFT-HPH-v38.7r-1", overlay = true, initial_capital = 100000,
+strategy("AHFT - Hephaestus-Prime (v38.7r-2)", "AHFT-HPH-v38.7r-2", overlay = true, initial_capital = 100000,
          commission_type = strategy.commission.percent, commission_value = 0.04, slippage = 1,
          calc_on_every_tick = true, process_orders_on_close = false, max_bars_back = 5000, dynamic_requests = true)
 
@@ -20,12 +20,17 @@ strategy("AHFT - Hephaestus-Prime (v38.7r-1)", "AHFT-HPH-v38.7r-1", overlay = tr
 // 0. 버전 상수 (헌장 제0조)
 //───────────────────────────────────────────────────────────────────────────────
 
-const string CODE_VERSION  = "v38.7r-1"
+const string CODE_VERSION  = "v38.7r-2"
 
 const float  GENE_VERSION  = 36.0
 
+var int gSeed = na
 if barstate.isfirst
-    math.seed(dayofyear(time))
+    gSeed := year * 1000 + dayofyear
+
+f_rand(low, high) =>
+    gSeed := (gSeed * 48271) % 2147483647
+    low + (high - low) * (gSeed / 2147483647.0)
 //───────────────────────────────────────────────────────────────────────────────
 // 1. INPUTS (헌장 제1조)
 //───────────────────────────────────────────────────────────────────────────────
@@ -279,8 +284,8 @@ rand_idx(maxN) =>
 
 //–– Beta random generator (Marsaglia)
 f_rand_beta(a, b) =>
-    u1 = math.random(0.0, 1.0)
-    u2 = math.random(0.0, 1.0)
+    u1 = f_rand(0.0, 1.0)
+    u2 = f_rand(0.0, 1.0)
     v = math.pow(u1, 1 / a)
     w = math.pow(u2, 1 / b)
     v / (v + w)
@@ -295,7 +300,7 @@ f_choose_variant() =>
         s = math.exp((th + rw) / BAYES_TEMP)
         array.push(scores, s)
         tot += s
-    r = math.random(0.0, tot)
+    r = f_rand(0.0, tot)
     acc = 0.0
     idx_sel = 0
     for j = 0 to array.size(scores) - 1
@@ -882,7 +887,7 @@ if can_make_decision_event
     recent_no_trade = nz(bars_since_last_trade)
     is_exploration_time = USE_EPSILON_GREEDY and recent_no_trade > EPSILON_BAR_LIMIT
     
-    rand_val = math.random(0.0, 1.0)
+    rand_val = f_rand(0.0, 1.0)
     eps_prob_dyn = math.min(0.30, EPSILON_PROB * recent_no_trade / 50.0)
     if CVAR_EPSILON
         eps_prob_dyn := eps_prob_dyn * 0.5 * (historical_cvar95 / (historical_var95 + 1e-9))
