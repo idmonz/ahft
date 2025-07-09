@@ -2,6 +2,10 @@
 
 ## v38.9.0 "Helios Nexus Pine milestone" - 2025-07-20
 - Final release of the v38 line; roadmaps continue with v39.
+## v38.8r-6 "Helios Nexus Patch 8 Hotfix 6" - 2025-07-22
+- Added CALIB_BLOB fallback and ensured DistRL array resize.
+- CI regression matrix uses BTC, ETH, SOL.
+
 ## v38.8r-5 "Helios Nexus Patch 8 Hotfix 5" - 2025-07-21
 - Adjusted DistRL lambda median to respect `NUM_Q`
 - Moved beta sampling helper to the utils library
