@@ -11,5 +11,9 @@ for p in scripts:
     table.append(f"| `{p.name}` | `{ver}` | {date} |")
 readme = repo/"README.md"
 content = readme.read_text(encoding="utf-8")
-head, _, rest = content.partition("## Strategy index")
-readme.write_text(head+"## Strategy index\n"+ "\n".join(table)+"\n"+rest, encoding="utf-8")
+head, sep, rest = content.partition("## Strategy index")
+if not sep:
+    sys.exit("README missing 'Strategy index' section")
+rest = re.sub(r'^\n?(?:\|.*\n)+', '', rest, flags=re.MULTILINE)
+rest = rest.lstrip("\n")
+readme.write_text(head + "## Strategy index\n" + "\n".join(table) + "\n" + rest, encoding="utf-8")
