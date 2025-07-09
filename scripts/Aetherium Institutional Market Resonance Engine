@@ -1,0 +1,1005 @@
+Aetherium Institutional Market Resonance Engine
+
+
+
+
+
+
+Aetherium Institutional Market Resonance Engine (AIMRE)
+A Three-Pillar Framework for Decoding Institutional Activity
+
+
+🎓 THEORETICAL FOUNDATION
+The Aetherium Institutional Market Resonance Engine (AIMRE) is a multi-faceted analysis system designed to move beyond conventional indicators and decode the market's underlying structure as dictated by institutional capital flow. Its philosophy is built on a singular premise: significant market moves are preceded by a convergence of [u]context[/u], [u]location[/u], and [u]timing[/u]. Aetherium quantifies these three dimensions through a revolutionary three-pillar architecture.
+
+
+This system is not a simple combination of indicators; it is an integrated engine where each pillar's analysis feeds into a central logic core. A signal is only generated when all three pillars achieve a state of resonance, indicating a high-probability alignment between market organization, key liquidity levels, and cyclical momentum.
+
+
+⚡ THE THREE-PILLAR ARCHITECTURE
+
+
+1. 🌌 PILLAR I: THE COHERENCE ENGINE (THE 'CONTEXT')
+Purpose: To measure the degree of organization within the market. This pillar answers the question: "Is the market acting with a unified purpose, or is it chaotic and random?"
+[
+b]Conceptual Framework: Institutional campaigns (accumulation or distribution) create a non-random, organized market environment. Retail-driven or directionless markets are characterized by "noise" and chaos. The Coherence Engine acts as a filter to ensure we only engage when institutional players are actively steering the market.
+
+
+Formulaic Concept:
+Coherence = f(Dominance, Synchronization)
+
+
+Dominance Factor: Calculates the absolute difference between smoothed buying pressure (volume-weighted bullish candles) and smoothed selling pressure (volume-weighted bearish candles), normalized by total pressure. A high value signifies a clear winner between buyers and sellers.
+
+
+Synchronization Factor: Measures the correlation between the streams of buying and selling pressure over the analysis window. A high positive correlation indicates synchronized, directional activity, while a negative correlation suggests choppy, conflicting action.
+
+
+The final Coherence score (0-100) represents the percentage of market organization. A high score is a prerequisite for any signal, filtering out unpredictable market conditions.
+
+
+2. 💎 PILLAR II: HARMONIC LIQUIDITY MATRIX (THE 'LOCATION')
+Purpose: To identify and map high-impact institutional footprints. This pillar answers the question: "Where have institutions previously committed significant capital?"
+
+
+Conceptual Framework: Large institutional orders leave indelible marks on the market in the form of anomalous volume spikes at specific price levels. These are not random occurrences but are areas of intense historical interest. The Harmonic Liquidity Matrix finds these footprints and consolidates them into actionable support and resistance zones called "Harmonic Nodes."
+
+
+Algorithmic Process:
+Footprint Identification: The engine scans the historical lookback period for candles where volume > average_volume * Institutional_Volume_Filter. This identifies statistically significant volume events.
+Node Creation: A raw node is created at the mean price of the identified candle.
+Dynamic Clustering: The engine uses an ATR-based proximity algorithm. If a new footprint is identified within Node_Clustering_Distance (ATR) of an existing Harmonic Node, it is merged. The node's price is volume-weighted, and its magnitude is increased. This prevents chart clutter and consolidates nearby institutional orders into a single, more significant level.
+Node Decay: Nodes that are older than the Institutional_Liquidity_Scanback period are automatically removed from the chart, ensuring the analysis remains relevant to recent market dynamics.
+
+
+3. 🌊 PILLAR III: CYCLICAL RESONANCE MATRIX (THE 'TIMING')
+Purpose: To identify the market's dominant rhythm and its current phase. This pillar answers the question: "Is the market's immediate energy flowing up or down?"
+Conceptual Framework: Markets move in waves and cycles of varying lengths. Trading in harmony with the current cyclical phase dramatically increases the probability of success. Aetherium employs a simplified wavelet analysis concept to decompose price action into short, medium, and long-term cycles.
+
+
+Algorithmic Process:
+Cycle Decomposition: The engine calculates three oscillators based on the difference between pairs of Exponential Moving Averages (e.g., EMA8-EMA13 for short cycle, EMA21-EMA34 for medium cycle).
+Energy Measurement: The 'energy' of each cycle is determined by its recent volatility (standard deviation). The cycle with the highest energy is designated as the "Dominant Cycle."
+Phase Analysis: The engine determines if the dominant cycles are in a bullish phase (rising from a trough) or a bearish phase (falling from a peak).
+Cycle Sync: The highest conviction timing signals occur when multiple cycles (e.g., short and medium) are synchronized in the same direction, indicating broad-based momentum.
+
+
+🔧 COMPREHENSIVE INPUT SYSTEM
+Pillar I: Market Coherence Engine
+Coherence Analysis Window (10-50, Default: 21): The lookback period for the Coherence Engine.
+Lower Values (10-15): Highly responsive to rapid shifts in market control. Ideal for scalping but can be sensitive to noise.
+Balanced (20-30): Excellent for day trading, capturing the ebb and flow of institutional sessions.
+Higher Values (35-50): Smoother, more stable reading. Best for swing trading and identifying long-term institutional campaigns.
+Coherence Activation Level (50-90%, Default: 70%): The minimum market organization required to enable signal generation.
+Strict (80-90%): Only allows signals in extremely clear, powerful trends. Fewer, but potentially higher quality signals.
+Standard (65-75%): A robust filter that effectively removes choppy conditions while capturing most valid institutional moves.
+Lenient (50-60%): Allows signals in less-organized markets. Can be useful in ranging markets but may increase false signals.
+Pillar II: Harmonic Liquidity Matrix
+Institutional Liquidity Scanback (100-400, Default: 200): How far back the engine looks for institutional footprints.
+Short (100-150): Focuses on recent institutional activity, providing highly relevant, immediate levels.
+Long (300-400): Identifies major, long-term structural levels. These nodes are often extremely powerful but may be less frequent.
+Institutional Volume Filter (1.3-3.0, Default: 1.8): The multiplier for detecting a volume spike.
+High (2.5-3.0): Only registers climactic, undeniable institutional volume. Fewer, but more significant nodes.
+Low (1.3-1.7): More sensitive, identifying smaller but still relevant institutional interest.
+Node Clustering Distance (0.2-0.8 ATR, Default: 0.4): The ATR-based distance for merging nearby nodes.
+High (0.6-0.8): Creates wider, more consolidated zones of liquidity.
+Low (0.2-0.3): Creates more numerous, precise, and distinct levels.
+Pillar III: Cyclical Resonance Matrix
+Cycle Resonance Analysis (30-100, Default: 50): The lookback for determining cycle energy and dominance.
+Short (30-40): Tunes the engine to faster, shorter-term market rhythms. Best for scalping.
+Long (70-100): Aligns the timing component with the larger primary trend. Best for swing trading.
+Institutional Signal Architecture
+Signal Quality Mode (Professional, Elite, Supreme): Controls the strictness of the three-pillar confluence.
+Professional: Loosest setting. May generate signals if two of the three pillars are in strong alignment. Increases signal frequency.
+Elite: Balanced setting. Requires a clear, unambiguous resonance of all three pillars. The recommended default.
+Supreme: Most stringent. Requires perfect alignment of all three pillars, with each pillar exhibiting exceptionally strong readings (e.g., coherence > 85%). The highest conviction signals.
+Signal Spacing Control (5-25, Default: 10): The minimum bars between signals to prevent clutter and redundant alerts.
+
+
+🎨 ADVANCED VISUAL SYSTEM
+The visual architecture of Aetherium is designed not merely for aesthetics, but to provide an intuitive, at-a-glance understanding of the complex data being processed.
+Harmonic Liquidity Nodes: The core visual element. Displayed as multi-layered, semi-transparent horizontal boxes.
+Magnitude Visualization: The height and opacity of a node's "glow" are proportional to its volume magnitude. More significant nodes appear brighter and larger, instantly drawing the eye to key levels.
+Color Coding: Standard nodes are blue/purple, while exceptionally high-magnitude nodes are highlighted in an accent color to denote critical importance.
+🌌 Quantum Resonance Field: A dynamic background gradient that visualizes the overall market environment.
+Color: Shifts from cool blues/purples (low coherence) to energetic greens/cyans (high coherence and organization), providing instant context.
+Intensity: The brightness and opacity of the field are influenced by total market energy (a composite of coherence, momentum, and volume), making powerful market states visually apparent.
+💎 Crystalline Lattice Matrix: A geometric web of lines projected from a central moving average.
+Mathematical Basis: Levels are projected using multiples of the Golden Ratio (Phi ≈ 1.618) and the ATR. This visualizes the natural harmonic and fractal structure of the market. It is not arbitrary but is based on mathematical principles of market geometry.
+🧠 Synaptic Flow Network: A dynamic particle system visualizing the engine's "thought process."
+Node Density & Activation: The number of particles and their brightness/color are tied directly to the Market Coherence score. In high-coherence states, the network becomes a dense, bright, and organized web. In chaotic states, it becomes sparse and dim.
+⚡ Institutional Energy Waves: Flowing sine waves that visualize market volatility and rhythm.
+Amplitude & Speed: The height and speed of the waves are directly influenced by the ATR and volume, providing a feel for market energy.
+
+
+📊 INSTITUTIONAL CONTROL MATRIX (DASHBOARD)
+The dashboard is the central command console, providing a real-time, quantitative summary of each pillar's status.
+Header: Displays the script title and version.
+Coherence Engine Section:
+State: Displays a qualitative assessment of market organization: ◉ PHASE LOCK (High Coherence), ◎ ORGANIZING (Moderate Coherence), or ○ CHAOTIC (Low Coherence). Color-coded for immediate recognition.
+Power: Shows the precise Coherence percentage and a directional arrow (↗ or ↘) indicating if organization is increasing or decreasing.
+Liquidity Matrix Section:
+Nodes: Displays the total number of active Harmonic Liquidity Nodes currently being tracked.
+Target: Shows the price level of the nearest significant Harmonic Node to the current price, representing the most immediate institutional level of interest.
+Cycle Matrix Section:
+Cycle: Identifies the currently dominant market cycle (e.g., "MID [27]") based on cycle energy.
+Sync: Indicates the alignment of the cyclical forces: ▲ BULLISH, ▼ BEARISH, or ◆ DIVERGENT. This is the core timing confirmation.
+Signal Status Section:
+A unified status bar that provides the final verdict of the engine. It will display "QUANTUM SCAN" during neutral periods, or announce the tier and direction of an active signal (e.g., "◉ TIER 1 BUY ◉"), highlighted with the appropriate color.
+
+
+🎯 SIGNAL GENERATION LOGIC
+Aetherium's signal logic is built on the principle of strict, non-negotiable confluence.
+Condition 1: Context (Coherence Filter): The Market Coherence must be above the Coherence Activation Level. No signals can be generated in a chaotic market.
+Condition 2: Location (Liquidity Node Interaction): Price must be actively interacting with a significant Harmonic Liquidity Node.
+For a Buy Signal: Price must be rejecting the Node from below (testing it as support).
+For a Sell Signal: Price must be rejecting the Node from above (testing it as resistance).
+Condition 3: Timing (Cycle Alignment): The Cyclical Resonance Matrix must confirm that the dominant cycles are synchronized with the intended trade direction.
+Signal Tiering: The Signal Quality Mode input determines how strictly these three conditions must be met. 'Supreme' mode, for example, might require not only that the conditions are met, but that the Market Coherence is exceptionally high and the interaction with the Node is accompanied by a significant volume spike.
+Signal Spacing: A final filter ensures that signals are spaced by a minimum number of bars, preventing over-alerting in a single move.
+
+
+🚀 ADVANCED TRADING STRATEGIES
+The Primary Confluence Strategy: The intended use of the system. Wait for a Tier 1 (Elite/Supreme) or Tier 2 (Professional/Elite) signal to appear on the chart. This represents the alignment of all three pillars. Enter after the signal bar closes, with a stop-loss placed logically on the other side of the Harmonic Node that triggered the signal.
+The Coherence Context Strategy: Use the Coherence Engine as a standalone market filter. When Coherence is high (>70%), favor trend-following strategies. When Coherence is low (<50%), avoid new directional trades or favor range-bound strategies. A sharp drop in Coherence during a trend can be an early warning of a trend's exhaustion.
+Node-to-Node Trading: In a high-coherence environment, use the Harmonic Liquidity Nodes as both entry points and profit targets. For example, after a BUY signal is generated at one Node, the next Node above it becomes a logical first profit target.
+
+
+⚖️ RESPONSIBLE USAGE AND LIMITATIONS
+Decision Support, Not a Crystal Ball: Aetherium is an advanced decision-support tool. It is designed to identify high-probability conditions based on a model of institutional behavior. It does not predict the future.
+Risk Management is Paramount: No indicator can replace a sound risk management plan. Always use appropriate position sizing and stop-losses. The signals provided are probabilistic, not certainties.
+Past Performance Disclaimer: The market models used in this script are based on historical data. While robust, there is no guarantee that these patterns will persist in the future. Market conditions can and do change.
+Not a "Set and Forget" System: The indicator performs best when its user understands the concepts behind the three pillars. Use the dashboard and visual cues to build a comprehensive view of the market before acting on a signal.
+Backtesting is Essential: Before applying this tool to live trading, it is crucial to backtest and forward-test it on your preferred instruments and timeframes to understand its unique behavior and characteristics.
+
+
+🔮 CONCLUSION
+The Aetherium Institutional Market Resonance Engine represents a paradigm shift from single-variable analysis to a holistic, multi-pillar framework. By quantifying the abstract concepts of market context, location, and timing into a unified, logical system, it provides traders with an unprecedented lens into the mechanics of institutional market operations.
+It is not merely an indicator, but a complete analytical engine designed to foster a deeper understanding of market dynamics. By focusing on the core principles of institutional order flow, Aetherium empowers traders to filter out market noise, identify key structural levels, and time their entries in harmony with the market's underlying rhythm.
+
+
+"In all chaos there is a cosmos, in all disorder a secret order." - Carl Jung
+
+
+— Dskyz, Trade with insight. Trade with confluence. Trade with Aetherium.
+2 days ago
+Release Notes
+Aetherium (AIMRE) : The Refinement & Stability Update
+
+
+This major update overhauls AIMRE, focusing on Simplicity, Reliability, and Clarity by removing confusing features and fixing critical bugs. The result is a lighter, faster, and more intuitive indicator.
+
+
+Key Changes:
+
+
+Streamlined Targeting System: The complex and confusing "Advanced Target System" has been completely removed. The indicator now exclusively uses the dynamic, real-time Node Target derived from the Liquidity Matrix, providing a single, reliable target.
+
+
+Major Stability & Visual Fixes: A full code audit was performed to fix numerous critical bugs that caused script compilation errors. The buggy "Vortex Spiral" visual, which cluttered the chart, has also been permanently removed.
+
+
+Refined Dashboard UI: The dashboard has been decluttered for a cleaner look, featuring a new neutral grey border and a restyled footer for improved readability.
+
+
+Thank you for your feedback in helping to forge this superior version. Happy trading
+//@version=5
+indicator("Aetherium Institutional Market Resonance Engine", "🌌 AIMRE", overlay=true, max_labels_count=500, max_lines_count=500, max_boxes_count=500)
+//==============================================================================
+// 📚 COMPREHENSIVE USER GUIDE & CONCEPTUAL FRAMEWORK
+//==============================================================================
+//
+// 🌌 AETHERIUM - INSTITUTIONAL MARKET RESONANCE ENGINE
+//
+// Welcome to the Aetherium Institutional Market Resonance Engine, a sophisticated
+// three-pillar market analysis framework designed to decode institutional behavior
+// and identify high-probability trading opportunities.
+//
+// This system operates on the principle that institutional activity creates
+// distinct, measurable imprints on the market. By synthesizing three unique
+// analytical perspectives, Aetherium aims to align traders with the flow of
+// "smart money."
+//
+// ⚡ REVOLUTIONARY THREE-PILLAR ARCHITECTURE:
+//
+// The engine's strength lies in its requirement for confluence across three
+// independent pillars of analysis before generating a signal.
+//
+// 1. 🌌 PILLAR I: THE COHERENCE ENGINE - DETECTING MARKET ORGANIZATION
+//    - WHAT IT IS: This engine measures the degree of directional alignment
+//      between buyers and sellers. A high coherence score indicates an
+//      organized, non-random market, characteristic of institutional campaigns
+//      (accumulation or distribution). A low score suggests choppy, chaotic,
+//      or "retail-driven" price action.
+//    - WHY IT MATTERS: We only want to engage when the market has a clear,
+//      organized directive. The Coherence Engine acts as our primary context
+//      filter, ensuring we don't trade in noisy, unpredictable environments.
+//
+// 2. 💎 PILLAR II: HARMONIC LIQUIDITY NODES - MAPPING INSTITUTIONAL FOOTPRINTS
+//    - WHAT IT IS: This system scans historical price action to identify
+//      specific levels where anomalously high volume occurred. These "volume
+//      spikes" are the footprints of institutional orders. The engine then
+//      clusters nearby footprints into consolidated "Harmonic Liquidity Nodes."
+//    - WHY IT MATTERS: These nodes represent significant price zones where
+//      institutions have previously shown major interest. They act as powerful,
+//      data-driven support and resistance levels, providing the ideal *location*
+//      for a trade.
+//
+// 3. 🌊 PILLAR III: CYCLICAL RESONANCE MATRIX - TIMING THE MARKET RHYTHM
+//    - WHAT IT IS: Using advanced wavelet analysis, this pillar identifies the
+//      dominant short-to-medium term cycle in the market. It determines whether
+//      the market is currently in the bullish (upward) or bearish (downward)
+//      phase of its underlying rhythm.
+//    - WHY IT MATTERS: Proper timing is critical. This pillar ensures we enter
+//      trades in harmony with the market's natural ebb and flow, providing the
+//      *timing* confirmation for our setup.
+//
+// 🎯 SIGNAL GENERATION & HIERARCHY:
+//
+// Aetherium signals are only generated when all three pillars resonate in unison:
+//
+// • A HIGH CONVICTION BUY SIGNAL REQUIRES:
+//   1. CONTEXT: The Coherence Engine is above the activation threshold.
+//   2. LOCATION: Price is reacting to and rejecting a Harmonic Liquidity Node from below.
+//   3. TIMING: The Cyclical Resonance Matrix confirms a bullish cycle is active.
+//
+// • A HIGH CONVICTION SELL SIGNAL REQUIRES:
+//   1. CONTEXT: The Coherence Engine is above the activation threshold.
+//   2. LOCATION: Price is reacting to and rejecting a Harmonic Liquidity Node from above.
+//   3. TIMING: The Cyclical Resonance Matrix confirms a bearish cycle is active.
+//
+// The "Signal Quality Mode" input allows you to adjust the strictness of this
+// confluence, from "Professional" (more signals) to "Supreme" (highest conviction).
+//
+// 💡 HOW TO TRADE WITH AETHERIUM:
+//
+// 1. ASSESS THE ENVIRONMENT (DASHBOARD):
+//    - First, check the "Market Coherence" on the dashboard. If it's below your
+//      threshold (e.g., < 70%), the market is likely disorganized. It's best
+//      to be patient and wait for institutional organization to return.
+//
+// 2. IDENTIFY KEY LEVELS:
+//    - Observe the "Harmonic Liquidity Nodes" (blue/purple lines) on the chart.
+//      These are your primary areas of interest for potential reversals.
+//
+// 3. WAIT FOR A SIGNAL:
+//    - A BUY or SELL signal will appear only when price interacts with a Node
+//      *while* Coherence is high and the market Cycle aligns with the trade direction.
+//
+// 4. EXECUTE AND MANAGE RISK:
+//    - Entry: Consider entering after the signal bar closes.
+//    - Stop Loss: A logical placement is on the other side of the Harmonic
+//      Liquidity Node that triggered the signal.
+//    - Profit Targets: Other Harmonic Nodes, or traditional price action levels,
+//      can serve as excellent targets.
+//
+// ⚠️ IMPORTANT CONSIDERATIONS:
+// • Aetherium is a confluence-based system, not a crystal ball. It identifies
+//   high-probability conditions based on institutional behavior models.
+// • No system is 100% accurate. Always practice robust risk management.
+// • The advanced visual elements ("Quantum Resonance Field," "Synaptic Flow Network")
+//   are designed for thematic immersion and to provide a visual representation
+//   of the engine's analysis. They can be disabled for a cleaner chart.
+// • Thoroughly backtest and familiarize yourself with the indicator's behavior
+//   on your preferred assets and timeframes before risking capital.
+//==============================================================================
+//                    🎛️ INSTITUTIONAL CONFIGURATION MATRIX
+//==============================================================================
+group_coherence = "🌌 Pillar I: Market Coherence Engine"
+i_coherenceWindow = input.int(21, "Coherence Analysis Window", minval=10, maxval=50, group=group_coherence, 
+  tooltip="🎯 WHAT IT IS: The lookback period for analyzing market organization.\n\n⚡ HOW IT WORKS: It calculates a correlation of buying and selling pressure over this many bars. A higher value gives a smoother, more stable reading of market coherence, while a lower value is more responsive to short-term changes in market character.\n\n📈 LONGER (30-50): Better for identifying long-term, stable trends. Slower to react.\n📉 SHORTER (10-20): More sensitive to immediate shifts in control. Can be noisier.\n\n💡 PRO TIP: 21 is a Fibonacci number and provides a great balance for most timeframes, capturing medium-term institutional campaigns.")
+i_coherenceThreshold = input.float(70.0, "Coherence Activation Level (%)", minval=50.0, maxval=90.0, step=2.5, group=group_coherence, 
+  tooltip="🎯 WHAT IT IS: The minimum level of market organization required for Aetherium to consider generating a signal.\n\n⚡ HOW IT WORKS: This is the threshold the Coherence Engine's output must cross. A value of 70 means the market must be at least 70% organized/directional for the system to become active. It's a critical filter to avoid trading in choppy, unpredictable markets.\n\n📈 HIGHER (80-90%): Extremely strict. Only allows signals during very strong, clear trends. Fewer signals.\n📉 LOWER (50-60%): Less strict. Allows signals in less organized markets, which can increase signal frequency but may also increase false signals.\n\n💡 PRO TIP: 70-75% is the sweet spot. It effectively filters out noise while still capturing most valid institutional moves. Adjust based on asset volatility.")
+//------------------------------------------------------------------------------
+// 💎 Pillar II: Harmonic Liquidity Matrix
+//------------------------------------------------------------------------------
+group_liquidity = "💎 Pillar II: Harmonic Liquidity Matrix"
+i_liquidityWindow = input.int(200, "Institutional Liquidity Scanback", minval=100, maxval=400, group=group_liquidity,
+  tooltip="🎯 WHAT IT IS: The number of historical bars to scan for significant institutional volume footprints.\n\n⚡ HOW IT WORKS: The engine looks back over this period to find candles with anomalously high volume, which are then used to plot Harmonic Liquidity Nodes.\n\n📈 LONGER (300-400): Identifies more significant, longer-term institutional levels. These are often very strong but may be far from current price.\n📉 SHORTER (100-150): Focuses on more recent institutional activity, providing levels that are more relevant to the current price action.\n\n💡 PRO TIP: 200 bars is a standard for capturing a significant portion of recent market history on most timeframes without cluttering the chart with very old, potentially irrelevant levels.")
+i_volumeMultiplier = input.float(1.8, "Institutional Volume Filter", minval=1.3, maxval=3.0, step=0.1, group=group_liquidity,
+  tooltip="🎯 WHAT IT IS: A multiplier that defines what constitutes an 'institutional' volume spike.\n\n⚡ HOW IT WORKS: A volume spike is identified if `current_volume > average_volume * multiplier`. This ensures we only mark levels where volume was truly exceptional.\n\n📈 HIGHER (2.5-3.0): Very strict. Only massive, climactic volume spikes will be registered. This results in fewer, but arguably more significant, liquidity nodes.\n📉 LOWER (1.3-1.7): Less strict. More candles will qualify as high-volume, leading to more liquidity nodes being plotted.\n\n💡 PRO TIP: A value between 1.8 and 2.2 is ideal for most markets. It's high enough to filter out noise but low enough to capture most legitimate institutional footprints.")
+i_nodeClusterDistance = input.float(0.4, "Node Clustering Distance (ATR)", minval=0.2, maxval=0.8, step=0.1, group=group_liquidity,
+  tooltip="🎯 WHAT IT IS: The maximum distance, measured in multiples of the Average True Range (ATR), within which nearby volume-based levels will be merged into a single Harmonic Liquidity Node.\n\n⚡ HOW IT WORKS: If two raw institutional levels are closer than (ATR * this value), they are clustered together. This cleans up the chart by consolidating zones of interest.\n\n📈 HIGHER (0.6-0.8): More aggressive clustering. Results in fewer, wider zones of support/resistance.\n📉 LOWER (0.2-0.3): Less clustering. Results in more numerous, precise, and distinct levels.\n\n💡 PRO TIP: 0.4 offers a good balance, effectively grouping closely related institutional orders without making the zones too wide.")
+//------------------------------------------------------------------------------
+// 🌊 Pillar III: Cyclical Resonance Matrix
+//------------------------------------------------------------------------------
+group_cycles = "🌊 Pillar III: Cyclical Resonance Matrix"
+i_cycleAnalysisWindow = input.int(50, "Cycle Resonance Analysis", minval=30, maxval=100, group=group_cycles, tooltip="🎯 WHAT IT IS: The lookback period used for the wavelet analysis to determine the dominant market cycle.\n\n⚡ HOW IT WORKS: This setting tunes the frequency of the cycle detector. Shorter values are more sensitive to faster, short-term cycles, while longer values identify the slower, more dominant market rhythm.\n\n📈 LONGER (70-100): Aligns signals with the larger, primary trend. Good for swing trading.\n📉 SHORTER (30-40): Catches shorter-term oscillations. Better suited for scalping or day trading.\n\n💡 PRO TIP: A setting of 50 provides a robust, medium-term cycle analysis that complements the other pillars well for all-around use. Adjust based on your preferred trading timeframe.")
+//------------------------------------------------------------------------------
+// 🎯 Institutional Signal Architecture
+//------------------------------------------------------------------------------
+group_signals = "🎯 Institutional Signal Architecture"
+i_signalMode = input.string("Elite", "Signal Quality Mode", options=["Professional", "Elite", "Supreme"], group=group_signals,
+  tooltip="🎯 WHAT IT IS: Defines the strictness of the confluence required between the three pillars to generate a signal.\n\n⚡ HOW IT WORKS:\n- PROFESSIONAL: The least strict mode. May generate a signal if the confluence is strong but not perfect (e.g., 2 of 3 pillars strongly align). Results in more signals.\n- ELITE: The balanced, default mode. Requires a clear and unambiguous alignment of all three pillars (Coherence, Liquidity Node, and Cycle).\n- SUPREME: The most strict mode. Requires all three pillars to be in perfect alignment AND for their readings to be exceptionally strong (e.g., extremely high coherence). Results in the fewest, highest-conviction signals.\n\n💡 PRO TIP: Start with 'Elite' mode for a solid balance of signal quality and frequency. Use 'Supreme' if you only want to be alerted for A++ setups.")
+i_signalSpacing = input.int(10, "Signal Spacing Control", minval=5, maxval=25, group=group_signals,
+  tooltip="🎯 WHAT IT IS: The minimum number of bars that must pass before a new signal in the same direction can be generated.\n\n⚡ HOW IT WORKS: This prevents the indicator from generating multiple redundant signals during a single price move or consolidation phase.\n\n📈 HIGHER (15-25): Increases the spacing between signals, forcing you to wait longer for a new setup. Good for preventing over-trading.\n📉 LOWER (5-9): Allows for more frequent signals, which can be useful in fast-moving markets.\n\n💡 PRO TIP: A value of 10 is effective for preventing signal clutter without filtering out legitimate, consecutive opportunities.")
+//------------------------------------------------------------------------------
+// 🎨 Core & Advanced Visuals
+//------------------------------------------------------------------------------
+group_visual_core = "🎨 Institutional Visual Architecture"
+i_showNodes = input.bool(true, "Show 💎 Harmonic Liquidity Nodes", group=group_visual_core, tooltip="Toggles the visibility of the blue/purple institutional support and resistance lines on the chart. Highly recommended to keep enabled as these are the key levels for trade setups.")
+i_showCore = input.bool(true, "Show 🌌 Aetherium Resonance Core", group=group_visual_core, tooltip="Toggles the visibility of the central resonance line that moves with the price, indicating the core of market energy.")
+i_showDashboard = input.bool(true, "Show 📊 Institutional Control Matrix", group=group_visual_core, tooltip="Toggles the visibility of the main information dashboard which displays the real-time status of all three pillars.")
+i_dashboardPosition = input.string("Top Right", "Dashboard Position", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group=group_visual_core, tooltip="Sets the on-chart position for the Institutional Control Matrix dashboard.")
+group_advanced = "🚀 Advanced Institutional Visuals"
+show_resonance_field = input.bool(true, "Show 🌌 Quantum Resonance Field", group=group_advanced, tooltip="Toggles the background field visualization, which changes color and intensity based on market coherence and cycle direction. Provides an at-a-glance feel for the market environment.")
+i_showResonanceWaves = input.bool(true, "Show Signal Resonance Waves & Particles", group=group_advanced, tooltip="Toggles a dynamic visual effect where particles and waves emanate from signals, visualizing their impact.")
+show_field_boxes = input.bool(false, "Show 📦 Quantum Field Boxes", group=group_advanced, tooltip="An alternative, more solid representation of the Quantum Resonance Field. Shows filled boxes instead of a gradient background. Can obstruct the chart view but provides a very clear visual.")
+show_harmonic_lattice = input.bool(true, "Show 💎 Crystalline Lattice Matrix", group=group_advanced, tooltip="Toggles a visual lattice that connects recent pivot points to Harmonic Liquidity Nodes, visualizing the market's structural geometry.")
+show_neural_network = input.bool(true, "Show 🧠 Synaptic Flow Network", group=group_advanced, tooltip="Toggles a visual representation of the data flow between price action and the analysis engine, creating a 'neural network' effect.")
+show_energy_waves = input.bool(true, "Show ⚡ Institutional Energy Waves", group=group_advanced, tooltip="Toggles flowing waves across the chart, where the speed and amplitude are influenced by market volume and volatility.")
+visual_intensity = input.float(1.5, "🔥 Visual Intensity Matrix", minval=0.8, maxval=2.5, step=0.1, group=group_advanced)
+particle_density = input.int(12, "✨ Neural Density Matrix", minval=6, maxval=20, group=group_advanced)
+//------------------------------------------------------------------------------
+// 🎯 Target Selection Enhancement
+//------------------------------------------------------------------------------
+group_target = "🎯 Enhanced Target Selection"
+i_targetStability = input.float(0.15, "Target Stability Threshold (ATR)", minval=0.05, maxval=0.5, step=0.05, group=group_target)
+i_targetPriority = input.string("Magnitude", "Target Priority Method", options=["Magnitude", "Distance", "Hybrid"], group=group_target)
+//==============================================================================
+//                    🎨 INSTITUTIONAL COLOR ARCHITECTURE
+//==============================================================================
+color_primary_1 = #ededed48
+color_primary_2 = #0099ff
+color_primary_3 = #0066ff
+color_secondary_1 = #9b59b6
+color_secondary_2 = #8e44ad
+color_secondary_3 = #663399
+color_accent_1 = #ff00ff
+color_accent_2 = #ff0099
+color_accent_3 = #ff0066
+color_energy_1 = #00ff88
+color_energy_2 = #00ff44
+color_energy_3 = #00cc33
+color_void = #0a0a0f
+color_space = #151521
+color_cosmos = #1a1a2e
+text_bright = #ffffff
+text_glow = #e6f3ff
+text_normal = #cce7ff
+text_dim = #99ccff
+//==============================================================================
+//                           INSTITUTIONAL TYPE SYSTEM
+//==============================================================================
+type InstitutionalNode
+    float price
+    float magnitude
+    int bar_index
+    box coreBox
+    box glowBox
+    box auraBox
+    box quantumBox
+type CycleAnalysis
+    string name
+    float oscillator
+    bool is_peaking
+    bool is_troughing
+    bool is_rising
+    bool is_falling
+    string phase
+    float energy
+//==============================================================================
+//                         INSTITUTIONAL VARIABLES
+//==============================================================================
+var InstitutionalNode[] institutional_nodes = array.new<InstitutionalNode>()
+var table institutionalMatrix = na
+var label[] core_labels = array.new<label>()
+var label[] resonance_labels = array.new<label>()
+var bool resonance_active = false
+var int resonance_frame = 0
+var array<line> resonance_field_lines = array.new<line>()
+var array<line> harmonic_lattice_lines = array.new<line>()
+var array<line> energy_wave_lines = array.new<line>()
+var array<line> neural_connections = array.new<line>()
+var array<label> neural_nodes = array.new<label>()
+var array<label> harmonic_markers = array.new<label>()
+var array<box> quantum_fields = array.new<box>()
+var InstitutionalNode current_target = na
+var float last_target_switch_price = na
+var int target_update_counter = 0
+float atr_institutional = ta.atr(14)
+float volume_institutional = ta.sma(volume, 50)
+float lattice_base_ema = ta.ema(close, 13)
+float momentum_8 = ta.mom(close, 8)
+//==============================================================================
+//                    INSTITUTIONAL HELPER FUNCTIONS
+//==============================================================================
+gradient_color(baseColor, alpha) =>
+    color.new(baseColor, alpha)
+draw_institutional_nodes() =>
+    node_count = array.size(institutional_nodes)
+    if node_count > 0
+        totalMagnitude = 0.0
+        for [i, node] in institutional_nodes
+            totalMagnitude += node.magnitude        
+        avgMagnitude = totalMagnitude > 0 ? totalMagnitude / node_count : 1      
+        for [i, node] in institutional_nodes
+            normalized_magnitude = node.magnitude / avgMagnitude            
+            quantum_height = atr_institutional * 0.02 * visual_intensity
+            quantum_color = gradient_color(color_primary_1, int(85 - math.min(20, normalized_magnitude * 6)))            
+            if na(node.quantumBox)
+                node.quantumBox := box.new(bar_index, node.price + quantum_height, bar_index + 15, 
+                                         node.price - quantum_height, border_width=0, bgcolor=quantum_color, extend=extend.right)
+            else
+                box.set_top(node.quantumBox, node.price + quantum_height)
+                box.set_bottom(node.quantumBox, node.price - quantum_height)
+                box.set_right(node.quantumBox, bar_index + 15)
+                box.set_bgcolor(node.quantumBox, quantum_color)           
+            core_height = atr_institutional * 0.04 * visual_intensity
+            core_color = normalized_magnitude > 1.5 ? gradient_color(color_accent_1, int(88 - math.min(25, normalized_magnitude * 8))) : gradient_color(color_primary_2, int(90 - math.min(25, normalized_magnitude * 8)))
+            if na(node.coreBox)
+                node.coreBox := box.new(bar_index, node.price + core_height, bar_index + 15, node.price - core_height, 
+                                       border_width=0, bgcolor=core_color, extend=extend.right)
+            else
+                box.set_top(node.coreBox, node.price + core_height)
+                box.set_bottom(node.coreBox, node.price - core_height)
+                box.set_right(node.coreBox, bar_index + 15)
+                box.set_bgcolor(node.coreBox, core_color)            
+            glow_height = atr_institutional * 0.15 * math.max(1, math.log(normalized_magnitude + 1)) * visual_intensity
+            glow_color = gradient_color(color_secondary_1, int(93 - math.min(15, normalized_magnitude * 5)))
+            if na(node.glowBox)
+                node.glowBox := box.new(bar_index, node.price + glow_height, bar_index + 15, node.price - glow_height, 
+                                       border_width=0, bgcolor=glow_color, extend=extend.right)
+            else
+                box.set_top(node.glowBox, node.price + glow_height)
+                box.set_bottom(node.glowBox, node.price - glow_height)
+                box.set_right(node.glowBox, bar_index + 15)
+                box.set_bgcolor(node.glowBox, glow_color)            
+            if normalized_magnitude > 1.8
+                aura_height = atr_institutional * 0.35 * visual_intensity
+                aura_color = gradient_color(color_accent_3, int(95 - math.min(10, normalized_magnitude * 3)))
+                if na(node.auraBox)
+                    node.auraBox := box.new(bar_index, node.price + aura_height, bar_index + 15, node.price - aura_height, border_width=0, bgcolor=aura_color, extend=extend.right)
+                if not na(node.auraBox)
+                    box.set_top(node.auraBox, node.price + aura_height)
+                    box.set_bottom(node.auraBox, node.price - aura_height)
+                    box.set_right(node.auraBox, bar_index + 15)
+                    box.set_bgcolor(node.auraBox, aura_color)
+getNodeTarget(price) =>
+    InstitutionalNode best_target = na
+    float stability_threshold = atr_institutional * i_targetStability    
+    float replay_stability_multiplier = barstate.isrealtime ? 1.0 : 0.5
+    stability_threshold *= replay_stability_multiplier    
+    if not na(current_target) and not na(last_target_switch_price)
+        price_moved = math.abs(price - last_target_switch_price)        
+        bool current_target_valid = false
+        if array.size(institutional_nodes) > 0
+            for node in institutional_nodes
+                if math.abs(node.price - current_target.price) < (atr_institutional * 0.01) and 
+                   math.abs(node.bar_index - current_target.bar_index) < 10
+                    current_target_valid := true
+                    break       
+        if current_target_valid and price_moved < stability_threshold
+            best_target := current_target   
+    if na(best_target) and array.size(institutional_nodes) > 0
+        float best_score = -1
+        float avg_volume = math.max(volume_institutional, volume)       
+        for node in institutional_nodes
+            float score = 0
+            float distance = math.abs(node.price - price)
+            float normalized_magnitude = avg_volume > 0 ? node.magnitude / avg_volume : 1            
+            max_distance = atr_institutional * 10
+            if distance > max_distance
+                continue               
+            if i_targetPriority == "Distance"
+                score := distance > 0 ? (1 / distance) * 1000 : 1000
+            else if i_targetPriority == "Magnitude"
+                score := normalized_magnitude
+            else // Hybrid
+                distance_score = distance > 0 ? (1 / distance) * 100 : 100
+                magnitude_score = normalized_magnitude
+                score := (distance_score * 0.4) + (magnitude_score * 0.6)           
+            if score > best_score
+                best_score := score
+                best_target := node    
+    best_target
+get_cycle_analysis(osc, name) =>
+    is_peaking = osc > 0
+    is_troughing = osc < 0
+    is_rising = osc > osc[1]
+    is_falling = osc < osc[1]
+    energy = ta.stdev(osc, i_cycleAnalysisWindow)
+    string phase = is_peaking and is_rising ? "Ascending Peak" : is_peaking and is_falling ? "Descending Peak" : is_troughing and is_falling ? "Descending Trough" : "Ascending Trough"
+    CycleAnalysis.new(name, osc, is_peaking, is_troughing, is_rising, is_falling, phase, energy)
+//==============================================================================
+//                   PILLAR I: INSTITUTIONAL COHERENCE ENGINE
+//==============================================================================
+raw_buyer_power = (close > open ? (close - open) * volume : 0)
+raw_seller_power = (open > close ? (open - close) * volume : 0)
+ema_buyer_power = ta.ema(raw_buyer_power, i_coherenceWindow)
+ema_seller_power = ta.ema(raw_seller_power, i_coherenceWindow)
+total_power = ema_buyer_power + ema_seller_power
+dominance_factor = total_power > 0 ? math.abs(ema_buyer_power - ema_seller_power) / total_power : 0
+sync_factor = (ta.correlation(ema_buyer_power, ema_seller_power, i_coherenceWindow) + 1) / 2
+market_coherence = (dominance_factor * 0.6 + sync_factor * 0.4) * 100
+coherence_momentum = ta.change(market_coherence)
+coherence_activation = market_coherence > i_coherenceThreshold and coherence_momentum > 1.8
+net_institutional_flow = ema_buyer_power - ema_seller_power
+//==============================================================================
+//                 PILLAR II: HARMONIC LIQUIDITY MATRIX - ENHANCED
+//==============================================================================
+if barstate.isconfirmed or barstate.isrealtime
+    merge_distance = atr_institutional * i_nodeClusterDistance    
+    if array.size(institutional_nodes) > 0
+        i = array.size(institutional_nodes) - 1
+        while i >= 0
+            node = array.get(institutional_nodes, i)
+            if bar_index - node.bar_index > i_liquidityWindow
+                box.delete(node.coreBox)
+                box.delete(node.glowBox)
+                box.delete(node.quantumBox)
+                if not na(node.auraBox)
+                    box.delete(node.auraBox)
+                array.remove(institutional_nodes, i)
+            i -= 1   
+    if volume > volume_institutional * i_volumeMultiplier
+        new_node_price = (high + low + close) / 3
+        new_node_magnitude = volume
+        bool merged = false        
+        if array.size(institutional_nodes) > 0
+            for [idx, node] in institutional_nodes
+                if math.abs(node.price - new_node_price) < merge_distance
+                    node.price := (node.price * node.magnitude + new_node_price * new_node_magnitude) / (node.magnitude + new_node_magnitude)
+                    node.magnitude += new_node_magnitude
+                    node.bar_index := bar_index
+                    merged := true
+                    break        
+        if not merged
+            array.push(institutional_nodes, InstitutionalNode.new(new_node_price, new_node_magnitude, bar_index, na, na, na, na))
+//==============================================================================
+//                PILLAR III: CYCLICAL RESONANCE MATRIX
+//==============================================================================
+short_cycle_osc = ta.ema(close, 8) - ta.ema(close, 13)
+mid_cycle_osc = ta.ema(close, 21) - ta.ema(close, 34)
+long_cycle_osc = ta.ema(close, 55) - ta.ema(close, 89)
+short_cycle = get_cycle_analysis(short_cycle_osc, "SHORT")
+mid_cycle = get_cycle_analysis(mid_cycle_osc, "MID")
+long_cycle = get_cycle_analysis(long_cycle_osc, "LONG")
+string dominant_cycle_name = short_cycle.energy > mid_cycle.energy and short_cycle.energy > long_cycle.energy ? "SHORT" :  mid_cycle.energy > long_cycle.energy ? "MID" : "LONG"
+float dominant_cycle_period = dominant_cycle_name == "SHORT" ? 10.5 : dominant_cycle_name == "MID" ? 27.5 : 72
+cycles_aligned_bullish = short_cycle.is_rising and mid_cycle.is_rising and short_cycle.is_troughing
+cycles_aligned_bearish = short_cycle.is_falling and mid_cycle.is_falling and short_cycle.is_peaking
+//==============================================================================
+//                    NODE TARGET MANAGEMENT
+//==============================================================================
+if barstate.isconfirmed or barstate.isrealtime
+    InstitutionalNode new_target = getNodeTarget(close)
+    target_update_counter += 1   
+    if not na(new_target)
+        bool should_update_target = false        
+        if na(current_target)
+            should_update_target := true
+        else
+            bool current_target_exists = false
+            if array.size(institutional_nodes) > 0
+                for node in institutional_nodes
+                    if math.abs(node.price - current_target.price) < (atr_institutional * 0.01) and 
+                       math.abs(node.bar_index - current_target.bar_index) < 10
+                        current_target_exists := true
+                        break       
+            if not current_target_exists or (math.abs(current_target.price - new_target.price) > (atr_institutional * 0.01) or 
+               math.abs(current_target.bar_index - new_target.bar_index) > 5)
+                should_update_target := true       
+        if should_update_target
+            current_target := new_target
+            last_target_switch_price := close
+    else
+        current_target := na
+        last_target_switch_price := na
+//==============================================================================
+//                    INSTITUTIONAL SIGNAL ARCHITECTURE
+//==============================================================================
+var lastSignalBar = 0
+InstitutionalNode nearest_node = current_target
+bool at_major_node_support = false
+bool at_major_node_resistance = false
+if not na(nearest_node)
+    rejection_allowance = atr_institutional * 0.5
+    at_major_node_support := low < nearest_node.price + rejection_allowance and close > nearest_node.price
+    at_major_node_resistance := high > nearest_node.price - rejection_allowance and close < nearest_node.price
+coherence_ignition_setup = market_coherence > i_coherenceThreshold and coherence_momentum > 3
+tier1_long = false
+tier1_short = false
+tier2_long = false
+tier2_short = false
+tier3_long = false
+tier3_short = false
+if i_signalMode == "Supreme"
+    tier1_long := bar_index > lastSignalBar + (i_signalSpacing * 2) and 
+                 coherence_ignition_setup and at_major_node_support and 
+                 cycles_aligned_bullish and volume > volume_institutional * 2.0    
+    tier1_short := bar_index > lastSignalBar + (i_signalSpacing * 2) and 
+                  coherence_ignition_setup and at_major_node_resistance and 
+                  cycles_aligned_bearish and volume > volume_institutional * 2.0
+else if i_signalMode == "Elite"
+    tier1_long := bar_index > lastSignalBar + i_signalSpacing and 
+                 coherence_ignition_setup and at_major_node_support and 
+                 cycles_aligned_bullish   
+    tier1_short := bar_index > lastSignalBar + i_signalSpacing and 
+                  coherence_ignition_setup and at_major_node_resistance and 
+                  cycles_aligned_bearish
+    tier2_long := bar_index > lastSignalBar + i_signalSpacing and 
+                 market_coherence > (i_coherenceThreshold * 0.9) and coherence_momentum > 1.5 and
+                 at_major_node_support and (cycles_aligned_bullish or volume > volume_institutional * 1.5)    
+    tier2_short := bar_index > lastSignalBar + i_signalSpacing and 
+                  market_coherence > (i_coherenceThreshold * 0.9) and coherence_momentum > 1.5 and
+                  at_major_node_resistance and (cycles_aligned_bearish or volume > volume_institutional * 1.5)
+else
+    tier1_long := bar_index > lastSignalBar + i_signalSpacing and 
+                 coherence_ignition_setup and at_major_node_support and 
+                 cycles_aligned_bullish
+    tier1_short := bar_index > lastSignalBar + i_signalSpacing and 
+                  coherence_ignition_setup and at_major_node_resistance and 
+                  cycles_aligned_bearish   
+    tier2_long := bar_index > lastSignalBar + (i_signalSpacing * 0.8) and 
+                 market_coherence > (i_coherenceThreshold * 0.85) and
+                 at_major_node_support and (cycles_aligned_bullish or coherence_momentum > 2)    
+    tier2_short := bar_index > lastSignalBar + (i_signalSpacing * 0.8) and 
+                  market_coherence > (i_coherenceThreshold * 0.85) and
+                  at_major_node_resistance and (cycles_aligned_bearish or coherence_momentum < -2)    
+    tier3_long := bar_index > lastSignalBar + (i_signalSpacing * 0.6) and 
+                 market_coherence > (i_coherenceThreshold * 0.75) and
+                 ((at_major_node_support and volume > volume_institutional * 1.3) or
+                  (coherence_ignition_setup and net_institutional_flow > 0))   
+    tier3_short := bar_index > lastSignalBar + (i_signalSpacing * 0.6) and 
+                  market_coherence > (i_coherenceThreshold * 0.75) and
+                  ((at_major_node_resistance and volume > volume_institutional * 1.3) or
+                   (coherence_ignition_setup and net_institutional_flow < 0))
+long_signal = tier1_long or tier2_long or tier3_long
+short_signal = tier1_short or tier2_short or tier3_short
+
+if long_signal or short_signal
+    lastSignalBar := bar_index
+//==============================================================================
+//              🌌 INSTITUTIONAL VISUAL ARCHITECTURE
+//==============================================================================
+field_center = ta.ema(close, 21)
+field_amplitude = atr_institutional * visual_intensity
+price_range = ta.highest(high, 25) - ta.lowest(low, 25)
+total_market_energy = (market_coherence / 100 + math.abs(momentum_8) / atr_institutional + 
+                      (volume - volume_institutional) / volume_institutional) / 3
+//==============================================================================
+//                    🌌 INSTITUTIONAL CORE SYSTEM
+//==============================================================================
+if i_showNodes
+    draw_institutional_nodes()
+if long_signal or short_signal
+    // Part 1: Draw the signal arrows
+    signal_color = long_signal ? color_energy_1 : color_accent_2
+    y_position = long_signal ? low - atr_institutional * 1.2 : high + atr_institutional * 1.2
+    signal_tier = tier1_long or tier1_short ? 1 : tier2_long or tier2_short ? 2 : 3
+    signal_size = signal_tier == 1 ? size.large : signal_tier == 2 ? size.normal : size.small
+    for layer = 1 to 3
+        layer_offset = atr_institutional * layer * 0.15
+        layer_alpha = 70 - layer * 15
+        layer_char = long_signal ? (layer == 1 ? "▲" : layer == 2 ? "△" : "⋀") : 
+                                  (layer == 1 ? "▼" : layer == 2 ? "▽" : "⋁")
+        label.new(bar_index, long_signal ? y_position - layer_offset : y_position + layer_offset, 
+                 layer_char, style=label.style_none, color=color.new(color_void, 100), 
+                 textcolor=gradient_color(signal_color, layer_alpha), size=signal_size)
+    // Part 2: Draw the resonance waves/particles
+    if i_showResonanceWaves and not na(nearest_node)
+        stream_color = long_signal ? #22c55e : #ef4444
+        start_y = long_signal ? low : high
+        end_y = nearest_node.price 
+        for i = 1 to 10
+            particle_x = bar_index - i
+            particle_y = start_y + (end_y - start_y) * (i / 10.0)
+            particle_size = i < 3 ? size.small : size.tiny
+            particle_transparency = 70 + i * 2
+            label.new(particle_x, particle_y, "✦", color=color.new(color.white,100), textcolor=color.new(stream_color, particle_transparency), style=label.style_none, size=particle_size)
+//==============================================================================
+//                    🌌 QUANTUM RESONANCE FIELD
+//==============================================================================
+if show_resonance_field and barstate.isconfirmed
+    for line_obj in resonance_field_lines
+        line.delete(line_obj)
+    for box_obj in quantum_fields
+        box.delete(box_obj)
+    array.clear(resonance_field_lines)
+    array.clear(quantum_fields)
+    for layer = 1 to 8
+        layer_multiplier = layer * 0.15
+        field_strength = (total_market_energy + 0.3) * layer_multiplier
+        upper_field = field_center + field_amplitude * layer_multiplier
+        lower_field = field_center - field_amplitude * layer_multiplier
+        field_color = market_coherence > i_coherenceThreshold ? 
+                     (layer <= 3 ? color_energy_1 : layer <= 5 ? color_energy_2 : color_energy_3) :
+                     (layer <= 3 ? color_primary_1 : layer <= 5 ? color_primary_2 : color_primary_3)
+        field_alpha = int(80 + layer * 2 + field_strength * 5)
+        line_width = layer <= 2 ? 2 : 1
+        if show_field_boxes and layer % 2 == 0
+            quantum_box = box.new(bar_index - 25, upper_field, bar_index + 15, lower_field, border_width=0, bgcolor=gradient_color(field_color, int(98 - layer * 0.5)))
+            array.push(quantum_fields, quantum_box)
+        field_line_upper = line.new(bar_index - 20, upper_field, bar_index + 10, upper_field, 
+                                   color=gradient_color(field_color, field_alpha), width=line_width)
+        field_line_lower = line.new(bar_index - 20, lower_field, bar_index + 10, lower_field, 
+                                   color=gradient_color(field_color, field_alpha), width=line_width)
+        array.push(resonance_field_lines, field_line_upper)
+        array.push(resonance_field_lines, field_line_lower)
+//==============================================================================
+//                    💎 CRYSTALLINE LATTICE MATRIX
+//==============================================================================
+if show_harmonic_lattice and barstate.isconfirmed
+    for line_obj in harmonic_lattice_lines
+        line.delete(line_obj)
+    for label_obj in harmonic_markers
+        label.delete(label_obj)
+    array.clear(harmonic_lattice_lines)
+    array.clear(harmonic_markers)
+    phi = 1.618
+    lattice_base = lattice_base_ema
+    for lattice_level = 1 to 10
+        lattice_spacing = atr_institutional * (lattice_level * phi * 0.08) * visual_intensity
+        lattice_upper = lattice_base + lattice_spacing
+        lattice_lower = lattice_base - lattice_spacing
+        lattice_color = lattice_level <= 3 ? color_accent_1 : 
+                       lattice_level <= 6 ? color_accent_2 : 
+                       lattice_level <= 8 ? color_accent_3 : color_secondary_3
+        lattice_alpha = int(75 + lattice_level * 2 + total_market_energy * 10)
+        lattice_width = lattice_level <= 3 ? 2 : 1
+        lattice_style = lattice_level <= 4 ? line.style_solid : lattice_level <= 7 ? line.style_dashed : line.style_dotted
+        if lattice_level <= 6
+            for j = 1 to 3
+                x_offset = j * 8
+                connector = line.new(bar_index - 20 + x_offset, lattice_upper, 
+                                   bar_index - 20 + x_offset + 5, lattice_lower,
+                                   color=gradient_color(lattice_color, lattice_alpha + 10), 
+                                   width=1, style=line.style_dotted)
+                array.push(harmonic_lattice_lines, connector)
+        lattice_line_up = line.new(bar_index - 20, lattice_upper, bar_index + 20, lattice_upper,
+                                 color=gradient_color(lattice_color, lattice_alpha), width=lattice_width, style=lattice_style)
+        lattice_line_down = line.new(bar_index - 20, lattice_lower, bar_index + 20, lattice_lower,
+                                   color=gradient_color(lattice_color, lattice_alpha), width=lattice_width, style=lattice_style)
+        array.push(harmonic_lattice_lines, lattice_line_up)
+        array.push(harmonic_lattice_lines, lattice_line_down)
+        if lattice_level <= 5 and bar_index % 15 == 0
+            marker_char = "◈"
+            marker_alpha = int(50 + lattice_level * 10)
+            harmonic_marker = label.new(bar_index + 22, lattice_upper, marker_char,
+                                       color=color.new(color_void, 100), textcolor=gradient_color(lattice_color, marker_alpha),
+                                       style=label.style_label_left, size=size.small)
+            array.push(harmonic_markers, harmonic_marker)
+//==============================================================================
+//                      🧠 SYNAPTIC FLOW NETWORK
+//==============================================================================
+if show_neural_network and barstate.isconfirmed
+    for line_obj in neural_connections
+        line.delete(line_obj)
+    for label_obj in neural_nodes
+        label.delete(label_obj)
+    array.clear(neural_connections)
+    array.clear(neural_nodes)
+    neural_center_x = bar_index
+    neural_center_y = field_center  
+    for node_id = 1 to particle_density
+        angle = (node_id * 360 / particle_density + bar_index * 0.5) * math.pi / 180
+        radius = field_amplitude * (0.3 + (node_id % 3) * 0.2)       
+        node_x = neural_center_x + int(radius * math.cos(angle) / atr_institutional * 1.5)
+        node_y = neural_center_y + radius * math.sin(angle)
+        activation = market_coherence / 100
+        pulse = math.sin(bar_index * 0.1 + node_id) * 0.2 + 0.8
+        node_activation = activation * pulse       
+        node_color = node_activation > 0.7 ? color_energy_1 : node_activation > 0.5 ? color_primary_1 : color_secondary_1
+        node_alpha = int(40 + node_activation * 40)
+        node_size = node_activation > 0.7 ? size.normal : size.small
+        node_char = node_activation > 0.7 ? "◉" : node_activation > 0.5 ? "◎" : "○"        
+        neural_node = label.new(node_x, node_y, node_char, 
+                               color=color.new(color_void, 100), textcolor=gradient_color(node_color, node_alpha),
+                               style=label.style_none, size=node_size)
+        array.push(neural_nodes, neural_node)
+        if node_id > 1
+            for connection_id = 1 to math.min(3, node_id - 1)
+                target_id = node_id - connection_id
+                target_angle = (target_id * 360 / particle_density + bar_index * 0.5) * math.pi / 180
+                target_radius = field_amplitude * (0.3 + (target_id % 3) * 0.2)            
+                target_x = neural_center_x + int(target_radius * math.cos(target_angle) / atr_institutional * 1.5)
+                target_y = neural_center_y + target_radius * math.sin(target_angle)               
+                synapse_strength = node_activation * 0.7
+                synapse_alpha = int(40 + synapse_strength * 40)
+                synapse_color = color_primary_2               
+                synapse = line.new(node_x, node_y, target_x, target_y,
+                                 color=gradient_color(synapse_color, synapse_alpha), 
+                                 width=1, style=line.style_dotted)
+                array.push(neural_connections, synapse)
+//==============================================================================
+//                     ⚡ INSTITUTIONAL ENERGY WAVES
+//==============================================================================
+if show_energy_waves and barstate.isconfirmed
+    for line_obj in energy_wave_lines
+        line.delete(line_obj)
+    array.clear(energy_wave_lines)
+    wave_amplitude = atr_institutional * 0.3 * visual_intensity
+    wave_frequency = 0.15
+    for wave_id = 1 to 5
+        wave_offset = wave_id * 0.2
+        wave_alpha = int(70 + wave_id * 3)
+        wave_color = wave_id <= 2 ? color_energy_1 : wave_id <= 4 ? color_energy_2 : color_energy_3       
+        for x = 0 to 30
+            x1 = bar_index - 30 + x
+            x2 = bar_index - 30 + x + 1            
+            y1 = field_center + wave_amplitude * math.sin((x + bar_index * 0.1) * wave_frequency + wave_offset * math.pi)
+            y2 = field_center + wave_amplitude * math.sin((x + 1 + bar_index * 0.1) * wave_frequency + wave_offset * math.pi)           
+            wave_segment = line.new(x1, y1, x2, y2,
+                                  color=gradient_color(wave_color, wave_alpha), 
+                                  width=3 - wave_id / 2)
+            array.push(energy_wave_lines, wave_segment)
+//==============================================================================
+//                    🌌 INSTITUTIONAL CORE SYSTEM
+//==============================================================================
+if i_showCore and barstate.isrealtime
+    for lbl in core_labels
+        label.delete(lbl)
+    array.clear(core_labels)    
+    core_x = time + (time - time[1]) * 15
+    core_y = (high + low) / 2   
+    core_base_color = market_coherence > i_coherenceThreshold ? color_energy_1 : 
+                      market_coherence > (i_coherenceThreshold * 0.75) ? color_primary_1 : color_secondary_2
+    pulse_freq = (1 / dominant_cycle_period) * 2 * math.pi
+    pulse = math.sin(bar_index * pulse_freq) * 20
+    for i = 1 to 8
+        alpha = int(60 - i*6 - pulse)
+        core_size = i == 8 ? size.huge : i >= 6 ? size.large : i >= 4 ? size.normal : size.small
+        core_char = i >= 7 ? "⬢" : i >= 5 ? "◆" : i >= 3 ? "◈" : "◇" 
+        core_color = i % 2 == 0 ? core_base_color : i <= 4 ? color_primary_2 : color_secondary_1       
+        lbl = label.new(core_x, core_y, core_char, color=color.new(color_void, 100), 
+                       textcolor=gradient_color(core_color, alpha), style=label.style_none, 
+                       size=core_size, xloc=xloc.bar_time)
+        array.push(core_labels, lbl)
+if coherence_activation[1] and not resonance_active
+    resonance_active := true
+    resonance_frame := 0
+if resonance_active and barstate.isconfirmed
+    for lbl in resonance_labels
+        label.delete(lbl)
+    array.clear(resonance_labels)
+    if resonance_frame < 15
+        resonance_x = time + (time - time[1]) * 15
+        resonance_y = (high + low) / 2      
+        for ring = 1 to 3
+            ring_alpha = int(75 - resonance_frame * 4 - ring * 10)
+            ring_size = resonance_frame > 10 ? size.huge : resonance_frame > 6 ? size.large : size.normal
+            ring_char = ring == 1 ? "◯" : ring == 2 ? "○" : "◦"
+            ring_offset = atr_institutional * ring * 0.1 * (resonance_frame / 10)
+            lbl_resonance = label.new(resonance_x, resonance_y + ring_offset, ring_char, 
+                                     color=color.new(color_void, 100), 
+                                     textcolor=gradient_color(color_energy_1, ring_alpha), 
+                                     style=label.style_none, size=ring_size, xloc=xloc.bar_time)
+            array.push(resonance_labels, lbl_resonance)
+        resonance_frame += 1
+    else
+        resonance_active := false
+//==============================================================================
+//                 📊 INSTITUTIONAL CONTROL MATRIX - SIMPLIFIED & RESTYLED
+//==============================================================================
+if i_showDashboard and barstate.isconfirmed
+    if not na(institutionalMatrix)
+        table.delete(institutionalMatrix)   
+    pos = i_dashboardPosition == "Top Left" ? position.top_left : 
+          i_dashboardPosition == "Top Right" ? position.top_right : 
+          i_dashboardPosition == "Bottom Left" ? position.bottom_left : position.bottom_right    
+    // Set border to grey and reduce rows for a more compact look
+    institutionalMatrix := table.new(pos, 5, 16, bgcolor=color_space, border_color=color.new(color.gray, 50), border_width=1)   
+    current_row = 0   
+    // Header
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "◈ AETHERIUM ◈", text_color=text_bright, text_size=size.small, bgcolor=gradient_color(color_void, 20))
+    current_row += 1   
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "INSTITUTIONAL QUANTUM MATRIX", text_color=text_glow, text_size=size.tiny, bgcolor=color.new(color_void, 50))
+    current_row += 1   
+    // Coherence Engine Section
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "━━━━━━━━━━━━━━━━━━━━━", text_halign=text.align_center, text_color=color_primary_2, text_size=size.tiny)
+    current_row += 1
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "🌌 COHERENCE ENGINE", text_halign=text.align_center, text_color=color_primary_2, text_size=size.small)
+    current_row += 1  
+    table.cell(institutionalMatrix, 0, current_row, "State", text_color=text_dim)
+    table.merge_cells(institutionalMatrix, 1, current_row, 4, current_row)
+    coherence_state = market_coherence > i_coherenceThreshold ? "◉ PHASE LOCK" : market_coherence > (i_coherenceThreshold * 0.75) ? "◎ ORGANIZING" : "○ CHAOTIC"
+    coherence_color = market_coherence > i_coherenceThreshold ? color_energy_1 : market_coherence > (i_coherenceThreshold * 0.75) ? color_primary_2 : color_secondary_2
+    table.cell(institutionalMatrix, 1, current_row, coherence_state, text_halign=text.align_right, text_color=coherence_color)
+    current_row += 1   
+    table.cell(institutionalMatrix, 0, current_row, "Power", text_color=text_dim)
+    table.merge_cells(institutionalMatrix, 1, current_row, 4, current_row)
+    power_text = str.tostring(market_coherence, "#.1") + "% " + (coherence_momentum > 0 ? "↗" : "↘")
+    table.cell(institutionalMatrix, 1, current_row, power_text, text_halign=text.align_right, text_color=text_bright)
+    current_row += 1    
+    // Liquidity Matrix Section
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "━━━━━━━━━━━━━━━━━━━━━", text_halign=text.align_center, text_color=color_secondary_1, text_size=size.tiny)
+    current_row += 1
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "💎 LIQUIDITY MATRIX", text_halign=text.align_center, text_color=color_secondary_1, text_size=size.small)
+    current_row += 1
+    table.cell(institutionalMatrix, 0, current_row, "Nodes", text_color=text_dim)
+    table.merge_cells(institutionalMatrix, 1, current_row, 4, current_row)
+    nodes_text = str.tostring(array.size(institutional_nodes)) + " Active"
+    table.cell(institutionalMatrix, 1, current_row, nodes_text, text_halign=text.align_right, text_color=text_bright)
+    current_row += 1  
+    table.cell(institutionalMatrix, 0, current_row, "Node Target", text_color=text_dim)
+    table.merge_cells(institutionalMatrix, 1, current_row, 4, current_row)
+    target_text = ""
+    target_color = text_dim
+    if not na(current_target)
+        target_price_str = str.tostring(current_target.price, format.mintick)
+        target_distance = math.abs(current_target.price - close)
+        target_direction = current_target.price > close ? "↑" : "↓"
+        distance_pips = target_distance / syminfo.mintick
+        target_text := target_price_str + " " + target_direction + " [" + str.tostring(distance_pips, "#") + "]"
+        target_color := text_bright
+    else
+        node_count = array.size(institutional_nodes)
+        target_text := "Scanning... [" + str.tostring(node_count) + " nodes]"
+        target_color := text_dim
+    table.cell(institutionalMatrix, 1, current_row, target_text, text_halign=text.align_right, text_color=target_color)
+    current_row += 1   
+    // Cycle Matrix Section
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "━━━━━━━━━━━━━━━━━━━━━", text_halign=text.align_center, text_color=color_accent_1, text_size=size.tiny)
+    current_row += 1
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "🌊 CYCLE MATRIX", text_halign=text.align_center, text_color=color_accent_1, text_size=size.small)
+    current_row += 1    
+    table.cell(institutionalMatrix, 0, current_row, "Cycle", text_color=text_dim)
+    table.merge_cells(institutionalMatrix, 1, current_row, 4, current_row)
+    cycle_text = dominant_cycle_name + " [" + str.tostring(dominant_cycle_period, "#") + "]"
+    table.cell(institutionalMatrix, 1, current_row, cycle_text, text_halign=text.align_right, text_color=text_bright)
+    current_row += 1
+    table.cell(institutionalMatrix, 0, current_row, "Sync", text_color=text_dim)
+    table.merge_cells(institutionalMatrix, 1, current_row, 4, current_row)
+    sync_text = cycles_aligned_bullish ? "▲ BULLISH" : cycles_aligned_bearish ? "▼ BEARISH" : "◆ DIVERGENT"
+    sync_color = cycles_aligned_bullish ? color_energy_1 : cycles_aligned_bearish ? color_accent_2 : text_dim
+    table.cell(institutionalMatrix, 1, current_row, sync_text, text_halign=text.align_right, text_color=sync_color)
+    current_row += 1   
+    // Footer Section
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    table.cell(institutionalMatrix, 0, current_row, "━━━━━━━━━━━━━━━━━━━━━", text_halign=text.align_center, text_color=color_energy_1, text_size=size.tiny)
+    current_row += 1   
+    table.merge_cells(institutionalMatrix, 0, current_row, 4, current_row)
+    string status_text = ""
+    color status_bgcolor = na
+    color footer_text_color = na
+    if tier1_long or tier1_short
+        status_text := (tier1_long ? "◉ TIER 1 BUY ◉" : "◉ TIER 1 SELL ◉")
+        status_bgcolor := tier1_long ? color_energy_1 : color_accent_2
+        footer_text_color := text_bright
+    else if tier2_long or tier2_short
+        status_text := (tier2_long ? "◎ TIER 2 BUY ◎" : "◎ TIER 2 SELL ◎")
+        status_bgcolor := tier2_long ? color_energy_2 : color_accent_3
+        footer_text_color := text_bright
+    else if tier3_long or tier3_short
+        status_text := (tier3_long ? "○ TIER 3 BUY ○" : "○ TIER 3 SELL ○")
+        status_bgcolor := tier3_long ? color_energy_3 : color_secondary_2
+        footer_text_color := text_bright
+    else
+        // Default footer style as requested
+        status_text := "◈⚡ Dskyz (DAFE) Trading Systems ◈"
+        status_bgcolor := color.new(#2A2E39, 0) // Dark Grey Background
+        footer_text_color := text_glow         // Light whitish-blue text       
+    table.cell(institutionalMatrix, 0, current_row, status_text, 
+              text_halign=text.align_center, text_color=footer_text_color, text_size=size.small,
+              bgcolor=status_bgcolor)
+//==============================================================================
+//                        INSTITUTIONAL ALERTS
+//==============================================================================
+alertcondition(tier1_long, title="AETHERIUM T1 BUY", 
+  message="◉ AETHERIUM V3.0: TIER 1 QUANTUM BUY SIGNAL ◉")
+alertcondition(tier1_short, title="AETHERIUM T1 SELL", 
+  message="◉ AETHERIUM V3.0: TIER 1 QUANTUM SELL SIGNAL ◉")
+alertcondition(tier2_long, title="AETHERIUM T2 BUY", 
+  message="◎ AETHERIUM V3.0: TIER 2 INSTITUTIONAL BUY ◎")
+alertcondition(tier2_short, title="AETHERIUM T2 SELL", 
+  message="◎ AETHERIUM V3.0: TIER 2 INSTITUTIONAL SELL ◎")
+alertcondition(coherence_activation, title="COHERENCE ACTIVATION", 
+  message="🌌 AETHERIUM V3.0: QUANTUM COHERENCE ACTIVATED 🌌")
+// Safe alert conditions for advanced targets
+var bool target_predicted_alert = false
+var bool target_reached_alert = false
+var bool target_standby_alert = false
+// Advanced Target Alerts
+alertcondition(target_predicted_alert, "New Target Predicted", "🎯 AETHERIUM: New High-Confidence Target Predicted")
+alertcondition(target_reached_alert, "Target Reached", "✅ AETHERIUM: Target Successfully Reached - Entering Standby Mode")
+alertcondition(target_standby_alert, "Standby Mode", "⏸️ AETHERIUM: Target System in Standby - Preparing Next Prediction")
+
