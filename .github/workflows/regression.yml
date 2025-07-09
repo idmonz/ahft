@@ -10,7 +10,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        tf: ["1", "5", "15"]
+        include:
+          - symbol: BINANCE:BTCUSDT
+            tf: "1"
+          - symbol: BINANCE:BTCUSDT
+            tf: "5"
+          - symbol: BINANCE:BTCUSDT
+            tf: "15"
+          - symbol: BINANCE:SOLUSDT
+            tf: "60"
     steps:
       - uses: actions/checkout@v3
       - name: Install tvscript-tester
@@ -19,6 +27,6 @@ jobs:
         run: |
           tvscript-tester scripts/AHFT-HPH-v38.8r-4.pine \
             --config configs/baseline_v38.8r-4.pineconfig \
-            --symbol BINANCE:BTCUSDT --timeframe ${{ matrix.tf }} \
+            --symbol ${{ matrix.symbol }} --timeframe ${{ matrix.tf }} \
             --from 2022-01-01 --to 2023-12-31 \
             --assert sharpe>=1.25 max_dd<=0.28 closed_trades>=300

@@ -1,7 +1,7 @@
 //@version=5
-import ahft_utils.*
+import ahft_utils as util
 //@roadmap_tag v38.9.0-pine
-//@commit_hash 6d737983
+//@commit_hash 0655deee
 // ==============================================================================
 
 // 📚 프로젝트: AHFT - Hephaestus-Prime (v38.8r-4) "Helios Nexus – Risk Capsule"
@@ -95,6 +95,9 @@ AIMRE_FR_WEIGHT_RT   = fr_rt
 AIMRE_LOMV_WEIGHT_RT = lomv_rt
 AIMRE_WINDOW_RT      = win_rt
 num_q_rt             = int(q_rt)
+if barstate.isfirst or NUM_Q != num_q_rt
+    NUM_Q := num_q_rt
+    util.f_resize(dist_arr, NUM_Q, 0.0)
 
 group_aimre = "📈 AIMRE Sentinel"
 AIMRE_OI_WEIGHT  = input.float(0.7, "AIMRE OI wt", group=group_aimre)
@@ -230,7 +233,7 @@ var array<float> goertzel_s1         = array.new_float(5, 0.)
 var array<float> goertzel_s2         = array.new_float(5, 0.)
 
 //–– DistRL storage
-int NUM_Q = NUM_Q_INPUT
+varip int NUM_Q = NUM_Q_INPUT
 var array<float> dist_arr            = array.new_float(NUM_Q, 0.)
 varip float last_q_update            = 0.0
 
@@ -356,41 +359,23 @@ f_kurt(src, len) =>
     denom = math.pow(ta.stdev(src, len), 4)
     denom > 0 ? f_moment(src, len, 4) / denom : 0
 
-//–– Array stdev
-f_array_stdev(a) =>
-    m = array.avg(a)
-    var_sum = 0.0
-    for i = 0 to array.size(a) - 1
-        var_sum += math.pow(f_safe_array_get(a, i, m), 2)
-    array.size(a) > 1 ? math.sqrt(var_sum / (array.size(a) - 1)) : 0
 
 //–– Weight updater (AOML)
 f_update_weight(w, err, score, beta) => 
-    w * math.exp(f_clamp(-beta * err * score, -2, 2))
+    w * math.exp(util.f_clamp(-beta * err * score, -2, 2))
 
 //–– Latent→scalar (EWMA)
 f_latent_to_timeseries(vec) =>
     ewma_sum = 0.0
     weight_sum = 0.0
     if array.size(vec) >= 4
-        ewma_sum += f_safe_array_get(vec, 0, 0.0) * 0.4
-        ewma_sum += f_safe_array_get(vec, 1, 0.0) * 0.3
-        ewma_sum += f_safe_array_get(vec, 2, 0.0) * 0.2
-        ewma_sum += f_safe_array_get(vec, 3, 0.0) * 0.1
+        ewma_sum += util.f_safe_array_get(vec, 0, 0.0) * 0.4
+        ewma_sum += util.f_safe_array_get(vec, 1, 0.0) * 0.3
+        ewma_sum += util.f_safe_array_get(vec, 2, 0.0) * 0.2
+        ewma_sum += util.f_safe_array_get(vec, 3, 0.0) * 0.1
         weight_sum := 0.4 + 0.3 + 0.2 + 0.1
     weight_sum > 0 ? ewma_sum / weight_sum : 0.0
 
-//–– Z-score normalizer
-f_zscore_normalize_array(src_array) =>
-    normalized = array.new_float(array.size(src_array), 0.0)
-    m = array.avg(src_array)
-    sd = f_array_stdev(src_array)
-    if sd > 0
-        for i = 0 to array.size(src_array) - 1
-            v = f_safe_array_get(src_array, i, m)
-            z = (v - m) / sd
-            array.set(normalized, i, f_normalize(z))
-    normalized
 
 //–– Cosine SGDR scheduler (pure)
 f_cosine_lr(beta_init, beta_min, trades, t0, t_mult, sg_t0_prev, sg_next_prev) =>
@@ -403,38 +388,33 @@ f_cosine_lr(beta_init, beta_min, trades, t0, t_mult, sg_t0_prev, sg_next_prev) =
     lr = beta_min + 0.5 * (beta_init - beta_min) * (1 + math.cos(math.pi * cycle_pos))
     array.from(lr, sg_t0_i, sg_nx_i)
 
-//–– Push-cap helper
-f_push_cap(arr, val, max_len) =>
-    if array.size(arr) >= max_len
-        array.shift(arr)
-    array.push(arr, val)
 
 f_patch_tst_encoder(src, len) =>
     vec = array.new_float(18, 0.0)
     if bar_index > len
         atr_norm = ta.atr(len) / src
         mfi_val = ta.mfi(close, 14) 
-        array.set(vec, 0, f_normalize((src - ta.sma(src, len)) / nz(ta.stdev(src, len), 1)))
-        array.set(vec, 1, f_normalize(ta.roc(src, 10) / 100))
-        array.set(vec, 2, f_normalize((ta.rsi(src, 14) - 50) / 50))
-        array.set(vec, 3, f_normalize(atr_norm - ta.sma(atr_norm, len)))
-        array.set(vec, 4, f_normalize(ta.mom(volume, 10) / ta.sma(volume, 50)))
-        array.set(vec, 5, f_normalize(ta.correlation(src, volume, 20)))
-        array.set(vec, 6, f_normalize(f_skew(src, len)))
-        array.set(vec, 7, f_normalize(f_kurt(src, len)))
-        array.set(vec, 8, f_normalize(ta.ema(src, 5) - ta.ema(src, 20)))
-        array.set(vec, 9, f_normalize(ta.ema(src, 20) - ta.ema(src, 60)))
-        array.set(vec, 10, f_normalize(ta.stdev(ta.roc(src, 1), 10)))
-        array.set(vec, 11, f_normalize(math.log(ta.highest(src, len)) - math.log(ta.lowest(src, len))))
-        array.set(vec, 12, f_normalize(ta.cci(src, 20) / 100))
-        array.set(vec, 13, f_normalize(mfi_val - 50))
-        array.set(vec, 14, f_normalize(ta.sma(src, 3) - ta.sma(src, 9)))
-        array.set(vec, 15, f_normalize(close - ta.vwap))
+        array.set(vec, 0, util.f_normalize((src - ta.sma(src, len)) / nz(ta.stdev(src, len), 1)))
+        array.set(vec, 1, util.f_normalize(ta.roc(src, 10) / 100))
+        array.set(vec, 2, util.f_normalize((ta.rsi(src, 14) - 50) / 50))
+        array.set(vec, 3, util.f_normalize(atr_norm - ta.sma(atr_norm, len)))
+        array.set(vec, 4, util.f_normalize(ta.mom(volume, 10) / ta.sma(volume, 50)))
+        array.set(vec, 5, util.f_normalize(ta.correlation(src, volume, 20)))
+        array.set(vec, 6, util.f_normalize(f_skew(src, len)))
+        array.set(vec, 7, util.f_normalize(f_kurt(src, len)))
+        array.set(vec, 8, util.f_normalize(ta.ema(src, 5) - ta.ema(src, 20)))
+        array.set(vec, 9, util.f_normalize(ta.ema(src, 20) - ta.ema(src, 60)))
+        array.set(vec, 10, util.f_normalize(ta.stdev(ta.roc(src, 1), 10)))
+        array.set(vec, 11, util.f_normalize(math.log(ta.highest(src, len)) - math.log(ta.lowest(src, len))))
+        array.set(vec, 12, util.f_normalize(ta.cci(src, 20) / 100))
+        array.set(vec, 13, util.f_normalize(mfi_val - 50))
+        array.set(vec, 14, util.f_normalize(ta.sma(src, 3) - ta.sma(src, 9)))
+        array.set(vec, 15, util.f_normalize(close - ta.vwap))
         array.set(vec, 16, 0.0)
         array.set(vec, 17, 0.0)
     vec
 f_calculate_ahft_signal() =>
-    f_normalize(((close[1] - ta.sma(close, 50)[1]) / nz(ta.atr(14)[1], 1)) / 3)
+    util.f_normalize(((close[1] - ta.sma(close, 50)[1]) / nz(ta.atr(14)[1], 1)) / 3)
 f_ofpi_t3(len, t3_len, t3_vf) =>
     body_pos = (high - low) > 0 ? (close - low) / (high - low) : 0.5
     net_vol = volume * (2 * body_pos - 1)
@@ -449,7 +429,7 @@ f_ofpi_t3(len, t3_len, t3_vf) =>
     c2 = 3 * t3_vf * t3_vf + 3 * t3_vf * t3_vf * t3_vf
     c3 = -6 * t3_vf * t3_vf - 3 * t3_vf - 3 * t3_vf * t3_vf * t3_vf
     c4 = 1 + 3 * t3_vf + t3_vf * t3_vf * t3_vf + 3 * t3_vf * t3_vf
-    f_normalize((c1 * e6 + c2 * e5 + c3 * e4 + c4 * e3) * 5)
+    util.f_normalize((c1 * e6 + c2 * e5 + c3 * e4 + c4 * e3) * 5)
 
 f_functoriality(len1, len2, len3) =>
     sma1 = ta.sma(close, len1)
@@ -469,7 +449,7 @@ f_hurst_rs(src, length) =>
     s = ta.stdev(src[1], length)
     rs = s > 0 ? r / s : 0
     H = rs > 0 ? math.log(rs) / math.log(length / 2) : 0.5
-    f_normalize((H - 0.5) * 2)
+    util.f_normalize((H - 0.5) * 2)
 
 f_hurst_dfa(src, scales_str, h_dfa_cached) =>
     h_dfa_new = h_dfa_cached
@@ -483,7 +463,7 @@ f_hurst_dfa(src, scales_str, h_dfa_cached) =>
         var array<float> segment_ycum_buffer = array.new_float()
         for scale in scales
             if bar_index > scale
-                segment_ycum_buffer := f_resize(segment_ycum_buffer, scale, 0.0)
+                segment_ycum_buffer := util.f_resize(segment_ycum_buffer, scale, 0.0)
                 detrend_len = math.min(200, math.max(20, scale * 4))
                 y = src - ta.sma(src, detrend_len)
                 y_cum = ta.cum(y)
@@ -495,7 +475,7 @@ f_hurst_dfa(src, scales_str, h_dfa_cached) =>
                 cov_xy = 0.0
                 for j = 0 to scale - 1
                     x = float(j)
-                    y_val = f_safe_array_get(segment_ycum_buffer, j, 0.0)
+                    y_val = util.f_safe_array_get(segment_ycum_buffer, j, 0.0)
                     dx = x - mean_x
                     dy = y_val - mean_y
                     mean_x += dx / (j + 1)
@@ -506,7 +486,7 @@ f_hurst_dfa(src, scales_str, h_dfa_cached) =>
                 intercept = mean_y - slope * mean_x
                 rss = 0.0
                 for j = 0 to scale - 1
-                    rss += math.pow(f_safe_array_get(segment_ycum_buffer, j, 0.0) - (slope * j + intercept), 2)
+                    rss += math.pow(util.f_safe_array_get(segment_ycum_buffer, j, 0.0) - (slope * j + intercept), 2)
                 fluctuation = math.sqrt(rss / scale)
                 if fluctuation > 0
                     array.push(log_scales, math.log(scale))
@@ -519,23 +499,23 @@ f_hurst_dfa(src, scales_str, h_dfa_cached) =>
             sum_x2 = 0.0
             n = array.size(log_scales)
             for i = 0 to n - 1
-                sum_xy += f_safe_array_get(log_scales, i, 0.0) * f_safe_array_get(log_fluctuations, i, 0.0)
-                sum_x2 += math.pow(f_safe_array_get(log_scales, i, 0.0), 2)
+                sum_xy += util.f_safe_array_get(log_scales, i, 0.0) * util.f_safe_array_get(log_fluctuations, i, 0.0)
+                sum_x2 += math.pow(util.f_safe_array_get(log_scales, i, 0.0), 2)
             denominator = n * sum_x2 - sum_x * sum_x
             if denominator != 0
                 H := (n * sum_xy - sum_x * sum_y) / denominator
         h_dfa_new := (H - 0.5) * 2
-    array.from(f_normalize(nz(h_dfa_new, 0.0)), h_dfa_new)
+    array.from(util.f_normalize(nz(h_dfa_new, 0.0)), h_dfa_new)
 
 
 f_update_goertzel_bank(src, periods) =>
     max_power = 0.0
     for i = 0 to array.size(periods) - 1
-        p = f_safe_array_get(periods, i, 1.0)
+        p = util.f_safe_array_get(periods, i, 1.0)
         w = 2 * math.pi / p
         coeff = 2 * math.cos(w)
-        s1_prev = f_safe_array_get(goertzel_s1, i, 0.0)
-        s2_prev = f_safe_array_get(goertzel_s2, i, 0.0)
+        s1_prev = util.f_safe_array_get(goertzel_s1, i, 0.0)
+        s2_prev = util.f_safe_array_get(goertzel_s2, i, 0.0)
         s0 = src + coeff * s1_prev - s2_prev
         array.set(goertzel_s2, i, s1_prev)
         array.set(goertzel_s1, i, s0)
@@ -544,7 +524,7 @@ f_update_goertzel_bank(src, periods) =>
     p_db_series = 10 * math.log10(max_power + 1e-9)
     rankLen = math.max(250, int(bar_index / 4))
     rank_norm = bar_index < rankLen ? 0.0 : ta.percentrank(p_db_series, rankLen) * 2 - 1
-    abs_power_norm = f_normalize(p_db_series / 50)
+    abs_power_norm = util.f_normalize(p_db_series / 50)
     blended_norm = rank_norm * 0.7 + abs_power_norm * 0.3
     array.from(blended_norm, p_db_series)
 
@@ -554,8 +534,8 @@ f_lomv_resonance_engine(_c, _v, _depth, _periods) =>
         p = array.get(_periods, i)
         ang = 2 * math.pi / p
         coeff = 2 * math.cos(ang)
-        s1_prev = f_safe_array_get(goertzel_s1, i, 0.0)
-        s2_prev = f_safe_array_get(goertzel_s2, i, 0.0)
+        s1_prev = util.f_safe_array_get(goertzel_s1, i, 0.0)
+        s2_prev = util.f_safe_array_get(goertzel_s2, i, 0.0)
         s0 = _c + coeff * s1_prev - s2_prev
         array.set(goertzel_s2, i, s1_prev)
         array.set(goertzel_s1, i, s0)
@@ -568,12 +548,12 @@ f_lomv_resonance_engine(_c, _v, _depth, _periods) =>
 f_msgarch_regime_proxy(vol_len, trend_len, asym_coef) =>
     vol_of_vol = ta.stdev(ta.tr, vol_len) / nz(ta.ema(ta.tr, vol_len), 1)
     vol_persistence_raw = ta.percentrank(vol_of_vol, 200) - 0.5
-    vol_persistence = f_clamp(vol_persistence_raw, -2, 2)
+    vol_persistence = util.f_clamp(vol_persistence_raw, -2, 2)
     trend_persistence = ta.correlation(close, ta.ema(close, trend_len), trend_len)
     asymmetric_penalty = 1 - math.sign(trend_persistence) * asym_coef
     regime_score = trend_persistence * math.exp(-2.0 * math.abs(vol_persistence) * asymmetric_penalty)
     regime_state = vol_persistence_raw > 0.5 ? 1 : 0
-    array.from(f_normalize(regime_score), regime_state)
+    array.from(util.f_normalize(regime_score), regime_state)
 
 f_aimre_sentinel(oi_z, fr, lomv) =>
     weight = math.abs(fr) > 0.001 ? 1.0 : 0.0
@@ -593,18 +573,18 @@ f_calculate_beta_zscore(src, benchmark_src, len) =>
 
 f_meso_momentum(src, tf, lookback) =>
     mtf_roc = request.security(syminfo.tickerid, tf, ta.roc(src, lookback), lookahead = barmerge.lookahead_off)
-    f_normalize(mtf_roc / 100)
+    util.f_normalize(mtf_roc / 100)
 
 f_adaptive_hurst_ensemble(rs_h, dfa_h, dft_h) => 
-    f_normalize(0.3 * rs_h + 0.4 * dfa_h + 0.3 * dft_h)
+    util.f_normalize(0.3 * rs_h + 0.4 * dfa_h + 0.3 * dft_h)
 
 f_get_mtf_trend(tf, latent_src_scalar) =>
     htf_super_trend = request.security(syminfo.tickerid, tf, (close - ta.ema(close, 200)) / nz(ta.atr(50), 1), lookahead = barmerge.lookahead_off)
     htf_latent_scalar = request.security(syminfo.tickerid, tf, latent_src_scalar, lookahead = barmerge.lookahead_off)
-    f_normalize(0.5 * f_normalize(ta.correlation(latent_src_scalar, htf_latent_scalar, 20)) + 0.5 * htf_super_trend)
+    util.f_normalize(0.5 * util.f_normalize(ta.correlation(latent_src_scalar, htf_latent_scalar, 20)) + 0.5 * htf_super_trend)
 
 f_get_mtf_volatility(tf) => 
-    f_normalize((request.security(syminfo.tickerid, tf, ta.atr(14) / close, lookahead = barmerge.lookahead_off) * 100) - 1)
+    util.f_normalize((request.security(syminfo.tickerid, tf, ta.atr(14) / close, lookahead = barmerge.lookahead_off) * 100) - 1)
 
 
 f_calculate_var_cvar(pnl_array, quantile) =>
@@ -614,7 +594,7 @@ f_calculate_var_cvar(pnl_array, quantile) =>
         sorted_pnls = array.copy(pnl_array)
         array.sort(sorted_pnls)
         var_index = int(math.round(array.size(sorted_pnls) * (1 - quantile)))
-        var_val = f_safe_array_get(sorted_pnls, var_index, 0.0)
+        var_val = util.f_safe_array_get(sorted_pnls, var_index, 0.0)
         var_result := -var_val / strategy.initial_capital
         cvar_tail = array.slice(sorted_pnls, 0, var_index + 1)
         cvar_result := -array.avg(cvar_tail) / strategy.initial_capital
@@ -627,17 +607,17 @@ f_create_expert_behavior_vector() =>
     scores = array.from(ahft_score, ofpi_score, hurst_score, functoriality_score, macro_trend_score, meso_beta_score, meso_momentum_score, micro_volatility_score, micro_leverage_score, msgarch_score, unified_signal_strength)
     vec = array.new_float(EXPERT_BEHAVIOR_VECTOR_SIZE, 0.0)
     array.set(vec, 0, GENE_VERSION)
-    array.set(vec, 1, f_normalize(ta.change(unified_signal_strength, 3)))
-    array.set(vec, 2, f_normalize(f_array_stdev(scores)))
-    array.set(vec, 3, f_normalize(ta.correlation(ahft_score, ofpi_score, 10)))
+    array.set(vec, 1, util.f_normalize(ta.change(unified_signal_strength, 3)))
+    array.set(vec, 2, util.f_normalize(util.f_array_stdev(scores)))
+    array.set(vec, 3, util.f_normalize(ta.correlation(ahft_score, ofpi_score, 10)))
     array.set(vec, 4, hurst_score > 0 ? 1 : -1)
-    array.set(vec, 5, f_normalize(macro_trend_score - meso_beta_score))
-    array.set(vec, 6, f_normalize(ta.roc(functoriality_score, 3)))
+    array.set(vec, 5, util.f_normalize(macro_trend_score - meso_beta_score))
+    array.set(vec, 6, util.f_normalize(ta.roc(functoriality_score, 3)))
     array.set(vec, 7, micro_volatility_score > 0.5 ? 1 : -1)
-    array.set(vec, 8, f_normalize(ta.rsi(unified_signal_strength, 5) - 50))
-    array.set(vec, 9, f_normalize(ofpi_score - ta.sma(ofpi_score, 5)))
+    array.set(vec, 8, util.f_normalize(ta.rsi(unified_signal_strength, 5) - 50))
+    array.set(vec, 9, util.f_normalize(ofpi_score - ta.sma(ofpi_score, 5)))
     array.set(vec, 10, math.sign(unified_signal_strength) == math.sign(macro_trend_score) ? 1 : -1)
-    array.set(vec, 11, f_normalize(meso_momentum_score - meso_beta_score))
+    array.set(vec, 11, util.f_normalize(meso_momentum_score - meso_beta_score))
     vec
 
 f_cosine_similarity(vec1, vec2) =>
@@ -645,8 +625,8 @@ f_cosine_similarity(vec1, vec2) =>
     mag1 = 0.0
     mag2 = 0.0
     for i = 0 to array.size(vec1) - 1
-        v1 = f_safe_array_get(vec1, i, 0.0)
-        v2 = f_safe_array_get(vec2, i, 0.0)
+        v1 = util.f_safe_array_get(vec1, i, 0.0)
+        v2 = util.f_safe_array_get(vec2, i, 0.0)
         dot_product += v1 * v2
         mag1 += math.pow(v1, 2)
         mag2 += math.pow(v2, 2)
@@ -665,12 +645,12 @@ f_ann_lookup(current_vec, db_name) =>
         for i = 0 to num_genes - 1
             db_head = db_name == "Strategist" ? optimal_db_head : expert_db_head
             current_idx = (db_head + i) % num_genes
-            if array.size(bar_db) > current_idx and (bar_index - f_safe_array_get(bar_db, current_idx, bar_index)) > LEARNING_LOOKBACK
+            if array.size(bar_db) > current_idx and (bar_index - util.f_safe_array_get(bar_db, current_idx, bar_index)) > LEARNING_LOOKBACK
                 continue
             start_index = current_idx * gene_len
             if array.size(db) >= start_index + gene_len
                 gene_dna_raw = array.slice(db, start_index, start_index + DNA_VECTOR_SIZE)
-                gene_version = f_safe_array_get(gene_dna_raw, 0, 0.0)
+                gene_version = util.f_safe_array_get(gene_dna_raw, 0, 0.0)
                 current_dna_no_version = array.copy(current_vec)
                 array.shift(current_dna_no_version)
                 array.shift(gene_dna_raw)
@@ -685,7 +665,7 @@ f_ann_lookup(current_vec, db_name) =>
                 max_sim = array.max(similarities)
                 max_sim_idx = array.indexof(similarities, max_sim)
                 if max_sim_idx > -1
-                    array.push(k_neighbors_indices, f_safe_array_get(indices, max_sim_idx, -1))
+                    array.push(k_neighbors_indices, util.f_safe_array_get(indices, max_sim_idx, -1))
                     array.remove(similarities, max_sim_idx)
                     array.remove(indices, max_sim_idx)
         if array.size(k_neighbors_indices) < k
@@ -709,7 +689,7 @@ f_synthesize_meta_parameters(neighbors_indices, flat_gene_db) =>
             start_index = idx * OPTIMAL_PATH_GENE_LENGTH
             if array.size(flat_gene_db) >= start_index + OPTIMAL_PATH_GENE_LENGTH
                 gene_dna_raw = array.slice(flat_gene_db, start_index, start_index + DNA_VECTOR_SIZE)
-                gene_version = f_safe_array_get(gene_dna_raw, 0, 0.0)
+                gene_version = util.f_safe_array_get(gene_dna_raw, 0, 0.0)
                 current_dna_no_version = array.copy(f_create_holographic_vector())
                 array.shift(current_dna_no_version)
                 array.shift(gene_dna_raw)
@@ -717,9 +697,9 @@ f_synthesize_meta_parameters(neighbors_indices, flat_gene_db) =>
                     array.push(gene_dna_raw, 0.0)
                 sim = f_cosine_similarity(current_dna_no_version, gene_dna_raw)
                 weight = math.pow(sim, 4)
-                sum_tsl += f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE, 2.0) * weight
-                sum_tp += f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE + 1, 3.0) * weight
-                sum_exit_sens += f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE + 2, 0.5) * weight
+                sum_tsl += util.f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE, 2.0) * weight
+                sum_tp += util.f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE + 1, 3.0) * weight
+                sum_exit_sens += util.f_safe_array_get(flat_gene_db, start_index + DNA_VECTOR_SIZE + 2, 0.5) * weight
                 total_weight += weight
         
         total_weight := math.max(total_weight, 1e-9)
@@ -737,7 +717,7 @@ f_calculate_reversal_risk_score(neighbors_indices, gene_db) =>
             start_index = idx * META_COGNITIVE_GENE_LENGTH
             if array.size(gene_db) >= start_index + META_COGNITIVE_GENE_LENGTH
                 gene_dna_raw = array.slice(gene_db, start_index, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE)
-                gene_version = f_safe_array_get(gene_dna_raw, 0, 0.0)
+                gene_version = util.f_safe_array_get(gene_dna_raw, 0, 0.0)
                 current_dna_no_version = array.copy(f_create_expert_behavior_vector())
                 array.shift(current_dna_no_version)
                 array.shift(gene_dna_raw)
@@ -745,8 +725,8 @@ f_calculate_reversal_risk_score(neighbors_indices, gene_db) =>
                     array.push(gene_dna_raw, 0.0)
                 sim = f_cosine_similarity(current_dna_no_version, gene_dna_raw)
                 if sim > 0
-                    reversal_outcome = f_safe_array_get(gene_db, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE, 0.0)
-                    reversal_severity = f_safe_array_get(gene_db, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, 0.0)
+                    reversal_outcome = util.f_safe_array_get(gene_db, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE, 0.0)
+                    reversal_severity = util.f_safe_array_get(gene_db, start_index + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, 0.0)
                     if reversal_outcome > 0 and reversal_severity > 0.05
                         expected_risk += sim * reversal_severity
                         total_sim += sim
@@ -770,28 +750,20 @@ f_calculate_cvar_constrained_kelly(w, p, cvar_hist, tau) =>
 
 f_update_qrdqn(rew) =>
     sigma = math.max(1e-6, ta.stdev(dist_arr, array.size(dist_arr)))
-    rew_clamped = f_clamp(rew, -5 * sigma, 5 * sigma)
+    rew_clamped = util.f_clamp(rew, -5 * sigma, 5 * sigma)
     for i = 0 to array.size(dist_arr) - 1
-        old = f_safe_array_get(dist_arr, i, 0.0)
+        old = util.f_safe_array_get(dist_arr, i, 0.0)
         array.set(dist_arr, i, old * QRDQN_DECAY)
     idx = ct_count % NUM_Q
-    val = f_safe_array_get(dist_arr, idx, 0.0)
+    val = util.f_safe_array_get(dist_arr, idx, 0.0)
     val := val + (1 - QRDQN_DECAY) * rew_clamped
     array.set(dist_arr, idx, val)
     last_q_update := val
 
-f_array_percentile(arr, pct) =>
-    if array.size(arr) == 0
-        0.0
-    else
-        sorted = array.copy(arr)
-        array.sort(sorted)
-        idx = int(math.floor(pct / 100 * (array.size(sorted) - 1)))
-        f_safe_array_get(sorted, idx, 0.0)
 
 f_qrdqn_lambda(qarr) =>
-    q_med = f_array_percentile(qarr, 50)
-    f_clamp(1 + q_med / 100, 0.3, 2.0)
+    q_med = util.f_array_percentile(qarr, 50)
+    util.f_clamp(1 + q_med / 100, 0.3, 2.0)
 
 f_transfer_qrdqn(src_close) =>
     syms = str.split(TRANSFER_SYMBOLS, ",")
@@ -856,20 +828,20 @@ if is_new_bar_event
 
     // Expert Calculations
     lomv_arr = f_lomv_resonance_engine(close, volume, volume, array.from(8, 13, 21, 34, 55))
-    lomv_score := f_safe_array_get(lomv_arr, 0, 0.0)
+    lomv_score := util.f_safe_array_get(lomv_arr, 0, 0.0)
     latent_vector_raw = f_patch_tst_encoder(close, PATCH_TST_LENGTH)
-    array.set(latent_vector_raw, 16, f_normalize(lomv_score))
-    array.set(latent_vector_raw, 17, f_normalize(micro_obi_zscore))
-    latent_vector := f_zscore_normalize_array(latent_vector_raw)
+    array.set(latent_vector_raw, 16, util.f_normalize(lomv_score))
+    array.set(latent_vector_raw, 17, util.f_normalize(micro_obi_zscore))
+    latent_vector := util.f_zscore_normalize_array(latent_vector_raw)
     ahft_score := f_calculate_ahft_signal()
     ofpi_score := f_ofpi_t3(ofpi_length_input, ofpi_t3_length_input, ofpi_t3_vfactor_input)
     goertzel_return_array = f_update_goertzel_bank(close, array.from(8, 13, 21, 34, 55))
-    goertzel_score := f_safe_array_get(goertzel_return_array, 0, 0.0)
-    power_db_series := f_safe_array_get(goertzel_return_array, 1, 0.0)
+    goertzel_score := util.f_safe_array_get(goertzel_return_array, 0, 0.0)
+    power_db_series := util.f_safe_array_get(goertzel_return_array, 1, 0.0)
     rs_h_score = f_hurst_rs(close, HURST_RS_PERIOD)
     dfa_return_array = f_hurst_dfa(close, HURST_DFA_SCALES, hurst_dfa_cached)
-    dfa_h_score = f_safe_array_get(dfa_return_array, 0, 0.0)
-    hurst_dfa_cached := f_safe_array_get(dfa_return_array, 1, 0.0)
+    dfa_h_score = util.f_safe_array_get(dfa_return_array, 0, 0.0)
+    hurst_dfa_cached := util.f_safe_array_get(dfa_return_array, 1, 0.0)
     hurst_score := f_adaptive_hurst_ensemble(rs_h_score, dfa_h_score, goertzel_score)
     functoriality_score := (f_functoriality(functoriality_len1_input, functoriality_len2_input, functoriality_len3_input) - 0.5) * 2
     macro_trend_score := f_get_mtf_trend(MACRO_TIMEFRAME, f_latent_to_timeseries(latent_vector))
@@ -877,7 +849,7 @@ if is_new_bar_event
         benchmark_close = request.security(BETA_BENCHMARK_TICKER, timeframe.period, close, lookahead = barmerge.lookahead_off)
         if not na(benchmark_close)
             raw_beta_z = f_calculate_beta_zscore(close, benchmark_close, BETA_LOOKBACK)
-            meso_beta_score := f_normalize(ta.ema(raw_beta_z, 3))
+            meso_beta_score := util.f_normalize(ta.ema(raw_beta_z, 3))
         else
             meso_beta_score := 0.0
     else
@@ -885,23 +857,23 @@ if is_new_bar_event
     meso_momentum_score_raw = f_meso_momentum(close, MESO_TIMEFRAME, MESO_MOMENTUM_LOOKBACK)
     proj_coeff = ta.correlation(meso_momentum_score_raw, macro_trend_score, 100)
     ortho_momentum = meso_momentum_score_raw - proj_coeff * macro_trend_score
-    meso_momentum_score := f_normalize(ortho_momentum)
+    meso_momentum_score := util.f_normalize(ortho_momentum)
     micro_volatility_score := f_get_mtf_volatility(MICRO_TIMEFRAME)
-    micro_leverage_score := syminfo.type == "futures" ? f_normalize(f_tanh(10 * oi_delta_pct)) : 0.0
+    micro_leverage_score := syminfo.type == "futures" ? util.f_normalize(f_tanh(10 * oi_delta_pct)) : 0.0
     msgarch_arr = f_msgarch_regime_proxy(MSGARCH_VOL_LEN, MSGARCH_TREND_LEN, asy_coef_input)
-    msgarch_score := f_safe_array_get(msgarch_arr, 0, 0.0)
+    msgarch_score := util.f_safe_array_get(msgarch_arr, 0, 0.0)
     obi_src = request.security(syminfo.tickerid, "15", close - open, lookahead = barmerge.lookahead_off)
     obi_raw = obi_src[3]
     obi_ma = ta.sma(obi_raw, 50)
     obi_std = ta.stdev(obi_raw, 50)
     micro_obi_zscore := obi_std > 0 ? (obi_raw - obi_ma) / obi_std : 0.0
-    msgarch_regime_state := int(f_safe_array_get(msgarch_arr, 1, 0.0))
+    msgarch_regime_state := int(util.f_safe_array_get(msgarch_arr, 1, 0.0))
     total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight
     safe_total_weight = math.max(total_weight, 1e-9)
     weighted_sum = ahft_score * ahft_weight + ofpi_score * ofpi_weight + hurst_score * hurst_weight + functoriality_score * functoriality_weight + macro_trend_score * macro_trend_weight + meso_beta_score * meso_beta_weight + meso_momentum_score * meso_momentum_weight + micro_volatility_score * micro_volatility_weight + micro_leverage_score * micro_leverage_weight + msgarch_score * msgarch_weight + lomv_score * lomv_weight
     unified_signal_strength := safe_total_weight > 1e-8 ? weighted_sum / safe_total_weight : 0.0
 
-    f_push_cap(signal_history, math.abs(unified_signal_strength), 200)
+    util.f_push_cap(signal_history, math.abs(unified_signal_strength), 200)
 // ─── 5.2. Database Update Logic ───
 if is_new_bar_event and bar_index > MIN_BARS_FOR_TRADING
     // ★★★ v37.9.2: 대표님의 v37.8 hotfix를 존중하여 고정 오프셋 로직 유지, nz()로 안전성 강화 ★★★
@@ -912,13 +884,13 @@ if is_new_bar_event and bar_index > MIN_BARS_FOR_TRADING
         start_idx = expert_db_head * META_COGNITIVE_GENE_LENGTH
         if array.size(flat_expert_behavior_db) < EXPERT_BEHAVIOR_DB_SIZE * META_COGNITIVE_GENE_LENGTH
             for i = 0 to array.size(behavior_vec) - 1
-                array.push(flat_expert_behavior_db, f_safe_array_get(behavior_vec, i, 0.0))
+                array.push(flat_expert_behavior_db, util.f_safe_array_get(behavior_vec, i, 0.0))
             array.push(flat_expert_behavior_db, nz(high[pivot_high_bars - 5], high) < nz(high[pivot_high_bars], high) ? 1.0 : -1.0)
             array.push(flat_expert_behavior_db, severity)
             array.push(expert_behavior_gene_bars, int(bar_index - pivot_high_bars))
         else
             for i = 0 to EXPERT_BEHAVIOR_VECTOR_SIZE - 1
-                array.set(flat_expert_behavior_db, start_idx + i, f_safe_array_get(behavior_vec, i, 0.0))
+                array.set(flat_expert_behavior_db, start_idx + i, util.f_safe_array_get(behavior_vec, i, 0.0))
             array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE, nz(high[pivot_high_bars - 5], high) < nz(high[pivot_high_bars], high) ? 1.0 : -1.0)
             array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, severity)
             array.set(expert_behavior_gene_bars, expert_db_head, int(bar_index - pivot_high_bars))
@@ -931,13 +903,13 @@ if is_new_bar_event and bar_index > MIN_BARS_FOR_TRADING
         start_idx = expert_db_head * META_COGNITIVE_GENE_LENGTH
         if array.size(flat_expert_behavior_db) < EXPERT_BEHAVIOR_DB_SIZE * META_COGNITIVE_GENE_LENGTH
             for i = 0 to array.size(behavior_vec) - 1
-                array.push(flat_expert_behavior_db, f_safe_array_get(behavior_vec, i, 0.0))
+                array.push(flat_expert_behavior_db, util.f_safe_array_get(behavior_vec, i, 0.0))
             array.push(flat_expert_behavior_db, nz(low[pivot_low_bars - 5], low) > nz(low[pivot_low_bars], low) ? 1.0 : -1.0)
             array.push(flat_expert_behavior_db, severity)
             array.push(expert_behavior_gene_bars, int(bar_index - pivot_low_bars))
         else
             for i = 0 to EXPERT_BEHAVIOR_VECTOR_SIZE - 1
-                array.set(flat_expert_behavior_db, start_idx + i, f_safe_array_get(behavior_vec, i, 0.0))
+                array.set(flat_expert_behavior_db, start_idx + i, util.f_safe_array_get(behavior_vec, i, 0.0))
             array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE, nz(low[pivot_low_bars - 5], low) > nz(low[pivot_low_bars], low) ? 1.0 : -1.0)
             array.set(flat_expert_behavior_db, start_idx + EXPERT_BEHAVIOR_VECTOR_SIZE + 1, severity)
             array.set(expert_behavior_gene_bars, expert_db_head, int(bar_index - pivot_low_bars))
@@ -947,11 +919,11 @@ if is_new_bar_event and bar_index > MIN_BARS_FOR_TRADING
 // ─── 5.3. Entry Logic ───
 if can_make_decision_event
 
-    adaptive_entry_sig_threshold = math.max(0.05, f_array_percentile(signal_history, 75))
+    adaptive_entry_sig_threshold = math.max(0.05, util.f_array_percentile(signal_history, 75))
     current_dna = f_create_holographic_vector()
     k_neighbors_strat = f_ann_lookup(current_dna, "Strategist")
     synthesis_results = f_synthesize_meta_parameters(k_neighbors_strat, flat_optimal_path_db)
-    base_confidence = f_safe_array_get(synthesis_results, 0, 0.0)
+    base_confidence = util.f_safe_array_get(synthesis_results, 0, 0.0)
     is_opportunity_valid = (math.abs(unified_signal_strength) > adaptive_entry_sig_threshold) and (base_confidence > ENTRY_CONFIDENCE_THRESHOLD)
 
     price_gap = math.abs(open - close[1])
@@ -982,7 +954,7 @@ if can_make_decision_event
             ENTRY_CONFIDENCE_THRESHOLD := array.get(variant_conf, current_variant_idx)
             dynamic_tsl_mult := array.get(variant_tsl, current_variant_idx)
             dynamic_tp_mult := array.get(variant_tp, current_variant_idx)
-            dynamic_exit_sensitivity := f_safe_array_get(synthesis_results, 3, 0.5)
+            dynamic_exit_sensitivity := util.f_safe_array_get(synthesis_results, 3, 0.5)
             eff_payoff = USE_SORTINO_KELLY ? sortino_ratio : payoff_ratio
             base_kappa = FRACTIONAL_KELLY_KAPPA * math.exp(-rolling_mdd * DRAWDOWN_PHI)
             f_star = f_calculate_cvar_constrained_kelly(win_rate, eff_payoff, historical_cvar95, CVAR_CONSTRAINT_TAU / 100)
@@ -1007,12 +979,12 @@ if can_make_decision_event
             target_risk_raw = (strategy.equity * (VOLATILITY_TARGET_PCT / 100)) * kelly_frac
             target_risk_per_trade = math.min(strategy.equity * MAX_RISK_PER_TRADE, math.max(strategy.equity * MIN_RISK_PER_TRADE, target_risk_raw))
             cvar_proxy = historical_var95 > 0 ? historical_cvar95 / historical_var95 : 1.0
-            gamma = 5 * (1 + f_normalize(math.log(cvar_proxy + 1e-9)))
-            lambda_raw = math.exp(-rolling_mdd * gamma) * f_normalize(functoriality_score)
+            gamma = 5 * (1 + util.f_normalize(math.log(cvar_proxy + 1e-9)))
+            lambda_raw = math.exp(-rolling_mdd * gamma) * util.f_normalize(functoriality_score)
             lambda_smoothed = ta.ema(lambda_raw, 20)
             min_lim = msgarch_regime_state == 1 ? 0.3 : 0.05
             max_lim = msgarch_regime_state == 1 ? 2.5 : 1.2
-            lambda_risk_budget := f_clamp(lambda_smoothed, min_lim, max_lim)
+            lambda_risk_budget := util.f_clamp(lambda_smoothed, min_lim, max_lim)
             if bar_index < WARMUP_BARS
                 lambda_risk_budget := WARMUP_LAMBDA
             if USE_QRDQN
@@ -1023,10 +995,10 @@ if can_make_decision_event
             hist_ok_cvar = not na(historical_cvar95)
             ema_cvar = ta.ema(hist_ok_cvar ? historical_cvar95 : 0.0, 100)
             stdev_cvar = ta.stdev(hist_ok_cvar ? historical_cvar95 : 0.0, 100)
-            cvar_rank = stdev_cvar > 0 ? f_normalize((historical_cvar95 - ema_cvar) / stdev_cvar) : 0.0
+            cvar_rank = stdev_cvar > 0 ? util.f_normalize((historical_cvar95 - ema_cvar) / stdev_cvar) : 0.0
             base_rng = nz(ta.atr(14), ta.tr)
-            market_impact_score = syminfo.type == "futures" ? f_normalize(ta.sma(volume, 5) / nz(ta.sma(ta.tr, 20), 1)) : f_normalize((high - low) / base_rng)
-            lambda_floor = 0.10 + 0.20 * (1 - f_normalize(historical_cvar95 / (historical_var95 + 1e-9)))
+            market_impact_score = syminfo.type == "futures" ? util.f_normalize(ta.sma(volume, 5) / nz(ta.sma(ta.tr, 20), 1)) : util.f_normalize((high - low) / base_rng)
+            lambda_floor = 0.10 + 0.20 * (1 - util.f_normalize(historical_cvar95 / (historical_var95 + 1e-9)))
             lambda_risk_budget := math.max(lambda_risk_budget, lambda_floor)
             min_lambda_floor = math.max(lambda_floor, market_impact_score)
 
@@ -1108,7 +1080,7 @@ if is_in_trade_event and barstate.isconfirmed
     exit_comment = ""
     sentinel_score := f_aimre_sentinel(oi_zscore, fr_val, lomv_score)
     if not exit_now
-        f_push_cap(sentinel_hist, sentinel_score, AIMRE_WINDOW_RT)
+        util.f_push_cap(sentinel_hist, sentinel_score, AIMRE_WINDOW_RT)
         if array.size(sentinel_hist) > 30
             sentinel_thresh := ta.percentile(sentinel_hist, 95) + 0.1
         else
@@ -1178,7 +1150,7 @@ if is_in_trade_event and barstate.isconfirmed
 // ─── 5.5. Learning Loop ───
 if is_trade_closed_event
     last_pnl = strategy.closedtrades.profit(ct_count - 1)
-    f_push_cap(trade_pnls, last_pnl, 100)
+    util.f_push_cap(trade_pnls, last_pnl, 100)
     if array.size(bayes_reward) > current_variant_idx
         rw_old = array.get(bayes_reward, current_variant_idx)
         new_rw = rw_old * BAYES_DECAY + (last_pnl / strategy.initial_capital) / math.sqrt(1 + math.abs(last_pnl / strategy.initial_capital))
@@ -1188,8 +1160,8 @@ if is_trade_closed_event
         else
             array.set(bayes_beta, current_variant_idx, array.get(bayes_beta, current_variant_idx) + 1)
     if last_pnl < 0
-        f_push_cap(down_devs, last_pnl * last_pnl, 100)
-    f_push_cap(equity_history, strategy.equity, 60)
+        util.f_push_cap(down_devs, last_pnl * last_pnl, 100)
+    util.f_push_cap(equity_history, strategy.equity, 60)
     peak_equity = array.max(equity_history)
     rolling_mdd := (peak_equity - strategy.equity) / math.max(peak_equity, 1e-6)
    
@@ -1208,8 +1180,8 @@ if is_trade_closed_event
     avg_ret = array.size(trade_pnls) > 0 ? array.avg(trade_pnls) : 0
     sortino_ratio := downside_dev > 0 ? avg_ret / downside_dev : 1.0
     var_cvar_array = f_calculate_var_cvar(trade_pnls, 0.95)
-    historical_var95 := f_safe_array_get(var_cvar_array, 0, 0.02)
-    historical_cvar95 := f_safe_array_get(var_cvar_array, 1, 0.03)
+    historical_var95 := util.f_safe_array_get(var_cvar_array, 0, 0.02)
+    historical_cvar95 := util.f_safe_array_get(var_cvar_array, 1, 0.03)
     last_trade_size = strategy.closedtrades.size(ct_count - 1)
     last_trade_entry_price = strategy.closedtrades.entry_price(ct_count - 1)
     var_epsilon = math.max(historical_var95, 1e-9)
@@ -1217,14 +1189,14 @@ if is_trade_closed_event
     hist_ok_learn = not na(historical_cvar95)
     ema_cvar_learn = ta.ema(hist_ok_learn ? historical_cvar95 : 0.0, 25)
     stdev_cvar_learn = ta.stdev(hist_ok_learn ? historical_cvar95 : 0.0, 25)
-    cvar_rank_learning = stdev_cvar_learn > 0 ? f_normalize((historical_cvar95 - ema_cvar_learn) / stdev_cvar_learn) : 0.0
+    cvar_rank_learning = stdev_cvar_learn > 0 ? util.f_normalize((historical_cvar95 - ema_cvar_learn) / stdev_cvar_learn) : 0.0
     err = trade_value_at_risk > 0 ? (last_pnl / trade_value_at_risk) * (1 - cvar_rank_learning) : 0
     err_scale = array.size(trade_pnls) > 10 and nz(array.median(trade_pnls)) != 0 ? 10 / math.abs(array.median(trade_pnls)) : 10
     err := err * err_scale
     lr_array = f_cosine_lr(aoml_beta_tuned, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
-    adaptive_beta = f_safe_array_get(lr_array, 0, MIN_BETA)
-    sgdr_curr_t0 := f_safe_array_get(lr_array, 1, sgdr_curr_t0)
-    sgdr_next_reset := f_safe_array_get(lr_array, 2, sgdr_next_reset)
+    adaptive_beta = util.f_safe_array_get(lr_array, 0, MIN_BETA)
+    sgdr_curr_t0 := util.f_safe_array_get(lr_array, 1, sgdr_curr_t0)
+    sgdr_next_reset := util.f_safe_array_get(lr_array, 2, sgdr_next_reset)
     ahft_weight := f_update_weight(ahft_weight, err, ahft_score[1], adaptive_beta)
     ofpi_weight := f_update_weight(ofpi_weight, err, ofpi_score[1], adaptive_beta)
     hurst_weight := f_update_weight(hurst_weight, err, hurst_score[1], adaptive_beta)
@@ -1236,7 +1208,7 @@ if is_trade_closed_event
     micro_leverage_weight := f_update_weight(micro_leverage_weight, err, micro_leverage_score[1], adaptive_beta)
     msgarch_weight := f_update_weight(msgarch_weight, err, msgarch_score[1], adaptive_beta)
     lomv_weight    := f_update_weight(lomv_weight, err, lomv_score[1], adaptive_beta)
-    dynamic_floor := f_clamp(0.02 * math.exp(-rolling_mdd * DRAWDOWN_PHI), 0.02, 0.07)
+    dynamic_floor := util.f_clamp(0.02 * math.exp(-rolling_mdd * DRAWDOWN_PHI), 0.02, 0.07)
     functoriality_weight := math.max(dynamic_floor, functoriality_weight)
     macro_trend_weight := math.max(dynamic_floor, macro_trend_weight)
     final_total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight
@@ -1266,11 +1238,11 @@ if is_trade_closed_event
         start_idx = optimal_db_head * OPTIMAL_PATH_GENE_LENGTH
         if array.size(flat_optimal_path_db) < OPTIMAL_PATH_DB_SIZE * OPTIMAL_PATH_GENE_LENGTH
             for i = 0 to array.size(optimal_path_gene) - 1
-                array.push(flat_optimal_path_db, f_safe_array_get(optimal_path_gene, i, 0.0))
+                array.push(flat_optimal_path_db, util.f_safe_array_get(optimal_path_gene, i, 0.0))
             array.push(optimal_path_gene_bars, var_entry_bar_index)
         else
             for i = 0 to OPTIMAL_PATH_GENE_LENGTH - 1
-                array.set(flat_optimal_path_db, start_idx + i, f_safe_array_get(optimal_path_gene, i, 0.0))
+                array.set(flat_optimal_path_db, start_idx + i, util.f_safe_array_get(optimal_path_gene, i, 0.0))
             array.set(optimal_path_gene_bars, optimal_db_head, var_entry_bar_index)
         optimal_db_head := (optimal_db_head + 1) % OPTIMAL_PATH_DB_SIZE
         var_dna_for_trade := na
@@ -1316,7 +1288,7 @@ if show_dashboard and barstate.islastconfirmedhistory
     table.cell(main_dashboard, 1, 13, strategy.position_size != 0 ? (strategy.position_size > 0 ? "LONG" : "SHORT") : "FLAT")
 
     lr_arr_dash = f_cosine_lr(aoml_beta_tuned, MIN_BETA, ct_count, LR_HALF_LIFE_T, LR_T_MULT, sgdr_curr_t0, sgdr_next_reset)
-    adaptive_beta_val = f_safe_array_get(lr_arr_dash, 0, MIN_BETA)
+    adaptive_beta_val = util.f_safe_array_get(lr_arr_dash, 0, MIN_BETA)
     table.cell(main_dashboard, 0, 14, "Adaptive Beta", text_color = color.gray)
     table.cell(main_dashboard, 1, 14, str.tostring(nz(adaptive_beta_val, MIN_BETA), "#.####"))
 
