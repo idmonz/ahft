@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install tvscript-tester
-        run: pip install tvscript-tester
+        run: pip install tvscript-tester==0.4.3
       - name: Compile check
         run: tvscript-tester scripts/AHFT-HPH-v38.9.0-pine.pine --compile-only
       - name: Run regression
