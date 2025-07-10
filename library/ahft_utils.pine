@@ -1,7 +1,8 @@
-//@library_version 1.2
-// Locked for Helios Nexus
 //@version=5
-library("ahft_utils")
+//@library
+//@library_version=2
+library("ahft_utils", shorttitle="AHFT Utils", overlay=false)
+// Locked for Helios Nexus
 
 f_safe_array_get(arr, idx, def) =>
     idx >= 0 and idx < array.size(arr) ? array.get(arr, idx) : def

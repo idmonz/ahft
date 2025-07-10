@@ -1,5 +1,5 @@
 //@version=5
-import ahft_utils/1 as util
+import ahft_utils/2 as util
 //@roadmap_tag v39.0-dev
 //@commit_hash 99de33e
 // ==============================================================================

@@ -17,7 +17,9 @@ jobs:
       - name: Install tvscript-tester
         run: pip install tvscript-tester==0.4.3
       - name: Compile check
-        run: tvscript-tester scripts/AHFT-HPH-v38.9.0-pine.pine --compile-only
+        run: tvscript-tester scripts/AHFT-HPH-v39.0-dev.pine \
+          --compile-only --extra-libs library/ahft_utils.pine \
+          --symbol BINANCE:BTCUSDT --timeframe 15
       - name: Run regression
         run: |
           tvscript-tester scripts/AHFT-HPH-v38.9.0-pine.pine \
