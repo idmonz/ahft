@@ -1,0 +1,2 @@
+# TradingView CLI from GitHub (until on PyPI)
+git+https://github.com/tradingview/tvscript-tester.git@v0.4.3

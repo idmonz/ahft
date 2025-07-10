@@ -14,8 +14,10 @@ jobs:
         tf: ["1","5","15"]
     steps:
       - uses: actions/checkout@v3
-      - name: Install tvscript-tester
-        run: pip install tvscript-tester==0.4.3
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements-dev.txt
       - name: Compile check
         run: tvscript-tester scripts/AHFT-HPH-v39.0-dev.pine \
           --compile-only --extra-libs library/ahft_utils.pine \
