@@ -22,7 +22,10 @@ jobs:
     # 4) tvscript-tester 설치 (우리 스텁 + 백업 ↓)
     - name: Install tvscript tester
       run: |
-        ./.tools/setup_tvtester.sh   # ← 앞서 만든 robust 설치 스크립트
+        pip install build --quiet
+          python .tools/build_stub_tvtester.py
+            .tools/setup_tvtester.sh
+
 
     # 5) Pine 컴파일 검사 (15m·4h·1D)
     - name: Compile AHFT strategy
