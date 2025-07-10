@@ -62,6 +62,9 @@ functoriality_len2_input = input.int(20, "Functoriality: SMA2", minval = 5,     
 functoriality_len3_input = input.int(60, "Functoriality: SMA3", minval = 10,           group = group_experts)
 oi_symbol = input.string("BINANCE:BTCUSDTFOI",      "Futures: Open-Interest Symbol", group = group_experts)
 fr_symbol = input.string("BINANCE:BTCUSDT_PERP_FR", "Futures: Funding-Rate Symbol",  group = group_experts)
+MACD_FAST_LEN  = input.int(12, "MACD Fast",  minval=5,  maxval=20, group = group_experts)
+MACD_SLOW_LEN  = input.int(26, "MACD Slow",  minval=20, maxval=40, group = group_experts)
+MACD_SIGNAL_LEN = input.int(9,  "MACD Signal", minval=5,  maxval=20, group = group_experts)
 
 //▬▬▬ (C) LEARNING ▬▬▬
 group_learning            = "🎓 Dual-Core Learning Engine"
@@ -181,6 +184,7 @@ var float micro_leverage_score       = 0.0
 var float msgarch_score              = 0.0
 var float micro_obi_zscore         = 0.0
 var float lomv_score               = 0.0
+var float macd_score               = 0.0
 var int msgarch_regime_state       = 0
 var float goertzel_score             = 0.0
 
@@ -196,6 +200,7 @@ varip float micro_volatility_weight  = 1.0
 varip float micro_leverage_weight    = 1.0
 varip float msgarch_weight           = 1.0
 varip float lomv_weight             = 1.0
+varip float macd_weight             = 1.0
 varip float dynamic_floor           = 0.02
 var float aoml_beta_tuned = AOML_BETA
 if barstate.isfirst and str.length(CALIB_BLOB) > 2
@@ -871,9 +876,11 @@ if is_new_bar_event
     obi_std = ta.stdev(obi_raw, 50)
     micro_obi_zscore := obi_std > 0 ? (obi_raw - obi_ma) / obi_std : 0.0
     msgarch_regime_state := int(util.f_safe_array_get(msgarch_arr, 1, 0.0))
-    total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight
+    [macd_val, macd_sig, macd_hist] = ta.macd(close, MACD_FAST_LEN, MACD_SLOW_LEN, MACD_SIGNAL_LEN)
+    macd_score := util.f_normalize(macd_hist)
+    total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight + macd_weight
     safe_total_weight = math.max(total_weight, 1e-9)
-    weighted_sum = ahft_score * ahft_weight + ofpi_score * ofpi_weight + hurst_score * hurst_weight + functoriality_score * functoriality_weight + macro_trend_score * macro_trend_weight + meso_beta_score * meso_beta_weight + meso_momentum_score * meso_momentum_weight + micro_volatility_score * micro_volatility_weight + micro_leverage_score * micro_leverage_weight + msgarch_score * msgarch_weight + lomv_score * lomv_weight
+    weighted_sum = ahft_score * ahft_weight + ofpi_score * ofpi_weight + hurst_score * hurst_weight + functoriality_score * functoriality_weight + macro_trend_score * macro_trend_weight + meso_beta_score * meso_beta_weight + meso_momentum_score * meso_momentum_weight + micro_volatility_score * micro_volatility_weight + micro_leverage_score * micro_leverage_weight + msgarch_score * msgarch_weight + lomv_score * lomv_weight + macd_score * macd_weight
     unified_signal_strength := safe_total_weight > 1e-8 ? weighted_sum / safe_total_weight : 0.0
 
     util.f_push_cap(signal_history, math.abs(unified_signal_strength), 200)
@@ -1027,8 +1034,10 @@ if can_make_decision_event
             if final_size < MIN_CONTRACT_QTY
                 final_size := 0
             
-            long_entry_triggered = final_size > 0 and unified_signal_strength > 0
-            short_entry_triggered = final_size > 0 and unified_signal_strength < 0
+            macd_bull = macd_score > 0
+            macd_bear = macd_score < 0
+            long_entry_triggered = final_size > 0 and unified_signal_strength > 0 and macd_bull
+            short_entry_triggered = final_size > 0 and unified_signal_strength < 0 and macd_bear
             
             strategy.entry("Long", strategy.long, qty=final_size, when=long_entry_triggered)
             strategy.entry("Short", strategy.short, qty=final_size, when=short_entry_triggered)
@@ -1211,12 +1220,13 @@ if is_trade_closed_event
     micro_leverage_weight := f_update_weight(micro_leverage_weight, err, micro_leverage_score[1], adaptive_beta)
     msgarch_weight := f_update_weight(msgarch_weight, err, msgarch_score[1], adaptive_beta)
     lomv_weight    := f_update_weight(lomv_weight, err, lomv_score[1], adaptive_beta)
+    macd_weight    := f_update_weight(macd_weight, err, macd_score[1], adaptive_beta)
     dynamic_floor := util.f_clamp(0.02 * math.exp(-rolling_mdd * DRAWDOWN_PHI), 0.02, 0.07)
     functoriality_weight := math.max(dynamic_floor, functoriality_weight)
     macro_trend_weight := math.max(dynamic_floor, macro_trend_weight)
-    final_total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight
+    final_total_weight = ahft_weight + ofpi_weight + hurst_weight + functoriality_weight + macro_trend_weight + meso_beta_weight + meso_momentum_weight + micro_volatility_weight + micro_leverage_weight + msgarch_weight + lomv_weight + macd_weight
     if final_total_weight > 0
-        ahft_weight /= final_total_weight, ofpi_weight /= final_total_weight, hurst_weight /= final_total_weight, functoriality_weight /= final_total_weight, macro_trend_weight /= final_total_weight, meso_beta_weight /= final_total_weight, meso_momentum_weight /= final_total_weight, micro_volatility_weight /= final_total_weight, micro_leverage_weight /= final_total_weight, msgarch_weight /= final_total_weight, lomv_weight /= final_total_weight
+        ahft_weight /= final_total_weight, ofpi_weight /= final_total_weight, hurst_weight /= final_total_weight, functoriality_weight /= final_total_weight, macro_trend_weight /= final_total_weight, meso_beta_weight /= final_total_weight, meso_momentum_weight /= final_total_weight, micro_volatility_weight /= final_total_weight, micro_leverage_weight /= final_total_weight, msgarch_weight /= final_total_weight, lomv_weight /= final_total_weight, macd_weight /= final_total_weight
     if not na(var_dna_for_trade) and array.size(var_dna_for_trade) > 0
         trade_duration = bar_index - var_entry_bar_index
         safe_trade_duration = math.min(trade_duration, 9999)
