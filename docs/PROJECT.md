@@ -2,6 +2,7 @@
 
 
 현재 패치 버전은 **v39.0-dev**이며, Pseudo-BO와 Patch-Lite 스텁 모듈이 기본 비활성으로 변경되었습니다.
+Offline-CI 대응(vendor tvscript-tester)와 MACD gate가 새로 도입되었습니다.
 
 AHFT v38.0 "Helios Nexus": 종합 기술 백서 및 개발 회고록
 [PART 1/30] 서문: 시장이라는 생명체를 향한 여정

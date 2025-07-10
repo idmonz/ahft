@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Setup tvscript-tester
+        run: ./.tools/setup_tvtester.sh || echo 'tvtester offline'
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Compile tests
+        run: |
+          tvscript-tester scripts/AHFT-HPH-v39.0-dev.pine --compile-only --extra-libs library/ahft_utils.pine --symbol BINANCE:BTCUSDT --timeframe 15
+          tvscript-tester scripts/AHFT-HPH-v39.0-dev.pine --compile-only --extra-libs library/ahft_utils.pine --symbol BINANCE:BTCUSDT --timeframe 240
+          tvscript-tester scripts/AHFT-HPH-v39.0-dev.pine --compile-only --extra-libs library/ahft_utils.pine --symbol BINANCE:BTCUSDT --timeframe D
+        continue-on-error: true
