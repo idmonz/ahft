@@ -1,5 +1,7 @@
 # Changelog
 
+## v39.0-dev – 2025-07-10
+- Introduced MACD gating with adaptive weight to align trades with trend
 ## v38.9.0-pine – 2025-07-21
 - Helios Nexus Pine milestone freeze
 - CALIB_BLOB 파싱 실패 시 런타임 기본값으로 자동 폴백
