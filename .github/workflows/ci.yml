@@ -1,0 +1,36 @@
+name: Pine-CI
+
+# 1) 트리거 조건 – main 과 codex 브랜치 푸시 & PR
+on:
+  push:
+    branches: [ main, codex/**, tvscript_tester ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 2) 저장소 체크아웃
+    - uses: actions/checkout@v3
+
+    # 3) Python 3.10 세팅
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    # 4) tvscript-tester 설치 (우리 스텁 + 백업 ↓)
+    - name: Install tvscript tester
+      run: |
+        pip install build --quiet
+          python .tools/build_stub_tvtester.py
+            .tools/setup_tvtester.sh
+
+
+    # 5) Pine 컴파일 검사 (15m·4h·1D)
+    - name: Compile AHFT strategy
+      run: |
+        for tf in 15 240 D; do
+          tvscript-tester scripts/AHFT-HPH-v39.0-dev.pine \
+            --compile-only --symbol BINANCE:BTCUSDT --timeframe "$tf"
+        done
