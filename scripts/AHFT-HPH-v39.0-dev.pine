@@ -1,10 +1,10 @@
 //@version=5
 import ahft_utils/1 as util
-//@roadmap_tag v38.9.0-pine
+//@roadmap_tag v39.0-dev
 //@commit_hash 99de33e
 // ==============================================================================
 
-// 📚 프로젝트: AHFT - Hephaestus-Prime (v38.9.0-pine) "Helios Nexus – Risk Capsule"
+// 📚 프로젝트: AHFT - Hephaestus-Prime (v39.0-dev) "Helios Nexus – Risk Capsule"
 // 🎯 목표: v38 Helios Nexus 로드맵 기능 구현.
 //          - Safe array get 패턴 정식 채택.
 //          - QR‑DQN DistRL 및 CVaR ε‑Greedy 옵션.
@@ -12,10 +12,10 @@ import ahft_utils/1 as util
 //          - Bayesian Auto-Tune과 κ(t)=κ₀·e^(−DD·φ) 적용.
 //          - Risk capsule sizing and partial exit routine.
 //          - 다중 심볼 DistRL, ONNX/Wasm 백엔드 모의.
-// 📑 AUDIT v38.9.0-pine: dist_arr resize guard and CALIB_BLOB fallback.
+// 📑 AUDIT v39.0-dev: dist_arr resize guard and CALIB_BLOB fallback.
 // ==============================================================================
 
-strategy("AHFT - Hephaestus-Prime (v38.9.0-pine)", "AHFT-HPH-v38.9.0-pine", overlay = true, initial_capital = 100000,
+strategy("AHFT - Hephaestus-Prime (v39.0-dev)", "AHFT-HPH-v39.0-dev", overlay = true, initial_capital = 100000,
          commission_type = strategy.commission.percent, commission_value = 0.04, slippage = 1,
          calc_on_every_tick = true, process_orders_on_close = false, max_bars_back = 5000, dynamic_requests = true)
 
@@ -23,7 +23,7 @@ strategy("AHFT - Hephaestus-Prime (v38.9.0-pine)", "AHFT-HPH-v38.9.0-pine", over
 // 0. 버전 상수 (헌장 제0조)
 //───────────────────────────────────────────────────────────────────────────────
 
-const string CODE_VERSION  = "v38.9.0-pine"
+const string CODE_VERSION  = "v39.0-dev"
 
 const float  GENE_VERSION  = 36.0
 
