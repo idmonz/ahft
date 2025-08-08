@@ -3,6 +3,22 @@
 
 현재 패치 버전은 **v39.0-dev**이며, Pseudo-BO와 Patch-Lite 스텁 모듈이 기본 비활성으로 변경되었습니다.
 
+### v39.1 CompositeMicro
+
+- Replaces the legacy MACD trend gate with a microstructure composite layer.
+- Blends 1m CVD (uptick/downtick), IBS, CLV, NR7 and IBR, then applies
+  liquidity and compression soft weights (0.5..1.0).
+- Optional CVD divergence weight softens signals when price and 1 m CVD
+  pivots disagree.
+- Tracks recent trade MAE/MFE and applies a soft cooldown after
+  consecutive losses.
+- All triggers run on confirmed bars only and `request.security` uses
+  `lookahead_off`.
+- Final scores are exposed as `sig_final_long` and `sig_final_short`.
+
+> The earlier MACD trend gate is deprecated; CompositeMicro is the new
+> default signal layer.
+
 AHFT v38.0 "Helios Nexus": 종합 기술 백서 및 개발 회고록
 [PART 1/30] 서문: 시장이라는 생명체를 향한 여정
 프로젝트의 시작: 하나의 근본적인 질문

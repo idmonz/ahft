@@ -36,6 +36,17 @@ three timeframes nightly and posts metrics to GitHub PR. |
 
 ---
 
+## Delivered
+
+- v39.1 – CompositeMicro: MACD gate removed; soft gating via 1m CVD, IBS,
+  CLV, NR7, IBR; optional CVD divergence penalty; liquidity & compression
+  weights; loss cooldown guard; MAE/MFE logging; exposes sig_final_long/short
+
+## Next
+
+- v39.2 – Structure-aware filters and enhanced CVD divergence weighting
+- v40 – Adaptive exits with MAE/MFE feedback
+
 ## Pine-Only Constraints
 
 * Learning arrays must stay below 100 KB.

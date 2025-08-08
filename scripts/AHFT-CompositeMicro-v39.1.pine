@@ -1,0 +1,238 @@
+//@version=5
+// ==============================================================================
+// 📚 프로젝트: AHFT - CompositeMicro (v39.1)
+// 🎯 핵심: MACD 게이트 제거. 1m CVD + IBS/CLV + NR7/IBR + CVD 다이버전스 + 유동성/압축 소프트 가중.
+// 🧱 헌장: Pine Script v5 불변의 개발 헌장 100% 준수 (Genesis Principle 포함).
+// 🔒 철학: 확정봉(barstate.isconfirmed) 기준 진입/알림 → 리페인트 차단.
+// ==============================================================================
+
+strategy(title="AHFT - CompositeMicro (v39.1)", shorttitle="AHFT-v39.1", overlay=true,initial_capital=100000, commission_type=strategy.commission.percent, commission_value=0.04, slippage=1, calc_on_every_tick=true, process_orders_on_close=false, max_bars_back=2000, pyramiding=0) 
+
+// ===================== 1) INPUTS =====================
+group_thr = "Entry Thresholds"
+thrLong   = input.float(0.25, "Long Threshold [0..1]", 0.00, 1.00, group=group_thr)
+thrShort  = input.float(0.25, "Short Threshold [0..1]",0.00, 1.00, group=group_thr)
+
+group_momo = "Base Momentum (Fallback)"
+rsiLen   = input.int(14, "RSI Len", 2, 200, group=group_momo)
+rocLen   = input.int(14, "ROC Len", 2, 200, group=group_momo)
+mixMomo  = input.float(0.5, "Mix RSIΔ~ROC (0..1)", 0.0, 1.0, group=group_momo)
+
+group_micro = "Microstructure Primitives"
+lookDelta    = input.int(50, "CVD z-score Lookback", 10, 1000, group=group_micro)
+useNR7       = input.bool(true, "Use NR7 Compression", group=group_micro)
+useIBR       = input.bool(true, "Use IBR (Inside Bar Ratio)", group=group_micro)
+useCvdDiv  = input.bool(true, "Use CVD Divergence", group=group_micro)
+cvdDivWin  = input.int(50, "CVD Divergence Window", 5, 1000, group=group_micro)
+cvdDivSens = input.float(1.0, "CVD Divergence Sensitivity", 0.1, 10.0, group=group_micro)
+
+group_weight = "Composite Soft Weights"
+w_liq_on   = input.bool(true,  "Liquidity weight (vol z→sigmoid)", group=group_weight)
+w_vol_on   = input.bool(true,  "Compression weight (TR/avgTR)",    group=group_weight)
+w_micro_on = input.bool(true,  "Micro weight (IBS/CLV/CVD/NR7/IBR)",group=group_weight)
+
+group_risk = "Risk (Sample)"
+atrLen     = input.int(14, "ATR Len", 1, 200, group=group_risk)
+atrSLmult  = input.float(2.0, "SL ATR Mult", 0.1, 10.0, group=group_risk)
+tp1R       = input.float(1.0, "TP1 (R multiple)", 0.2, 5.0, group=group_risk)
+tp2R       = input.float(2.0, "TP2 (R multiple)", 0.3, 10.0, group=group_risk)
+tp1pct     = input.float(50,  "TP1 Close (%)", 5, 95, group=group_risk)
+
+group_guard = "Risk Controls"
+lossTrig   = input.int(3, "Consecutive Loss Trigger", 1, 10, group=group_guard)
+lossCooldown = input.int(10, "Cooldown Bars", 1, 500, group=group_guard)
+cooldownW = input.float(0.6, "Cooldown Weight", 0.5, 1.0, group=group_guard)
+logTrades  = input.int(20, "Log N Trades for MAE/MFE", 1, 100, group=group_guard)
+
+// ===================== 2) UTILS =====================
+f_clamp(x, lo, hi) =>
+    x < lo ? lo : x > hi ? hi : x
+
+f_z(src, len) =>
+    m = ta.sma(src, len)
+    s = ta.stdev(src, len)
+    s > 0 ? (src - m)/s : 0.0
+
+f_sigmoid(x) =>
+    1.0 / (1.0 + math.exp(-x))
+
+to01_from_z(z) =>
+    f_sigmoid(z)  // z-score → 0..1
+
+soft01(w01) =>
+    0.5 + 0.5 * f_clamp(w01, 0.0, 1.0) // 0..1 → 0.5..1.0 (소프트 가중)
+
+// ===================== 3) MICRO PRIMITIVES =====================
+// IBS / CLV
+ib  = (high == low) ? 0.5 : (close - low) / (high - low)                     // [0..1]
+clv = (high == low) ? 0.0 : ((close - low) - (high - close)) / (high - low) // [-1..1]
+clv01 = 0.5 * (clv + 1.0)
+
+// NR7 / IBR
+tr    = ta.tr(true)
+rng   = high - low
+nr7   = useNR7 ? (rng < ta.lowest(rng, 7)[1]) : false
+ibr   = useIBR and (high <= high[1] and low >= low[1]) ? (rng / math.max(high[1]-low[1], 1e-6)) : na
+ibr01 = na(ibr) ? 0.5 : f_clamp(ibr, 0.0, 1.0)
+
+// 1분봉 CVD (uptick/downtick rule) - 확정값만 사용(lookahead_off)
+c1m = request.security(syminfo.tickerid, "1", close,  barmerge.gaps_off, barmerge.lookahead_off)
+v1m = request.security(syminfo.tickerid, "1", volume, barmerge.gaps_off, barmerge.lookahead_off)
+chg1m = c1m - c1m[1]
+sgn1m = chg1m > 0 ? 1 : chg1m < 0 ? -1 : 0
+delta1m = v1m * sgn1m
+cvd1m   = ta.cum(delta1m)
+cvdDeltaBar = ta.change(cvd1m)  // 현재 HTF 바에서 CVD 순변화 근사
+cvdZ   = f_z(cvdDeltaBar, lookDelta)
+cvd01  = to01_from_z(cvdZ)
+
+// CVD divergence (optional soft weight)
+phPrice = ta.pivothigh(high, 3, 3)
+plPrice = ta.pivotlow(low, 3, 3)
+phCvd   = ta.pivothigh(cvd1m, 3, 3)
+plCvd   = ta.pivotlow(cvd1m, 3, 3)
+var float prevPhPrice = na
+var float prevPhCvd = na
+var float prevPlPrice = na
+var float prevPlCvd = na
+bearStrength = 0.0
+bullStrength = 0.0
+bearDiv = false
+bullDiv = false
+if not na(phPrice)
+    bearDiv := useCvdDiv and not na(prevPhPrice) and phPrice > prevPhPrice and phCvd <= prevPhCvd
+    bearStrength := math.abs((phPrice - prevPhPrice) - (phCvd - prevPhCvd))
+    prevPhPrice := phPrice
+    prevPhCvd := phCvd
+if not na(plPrice)
+    bullDiv := useCvdDiv and not na(prevPlPrice) and plPrice < prevPlPrice and plCvd >= prevPlCvd
+    bullStrength := math.abs((prevPlPrice - plPrice) - (prevPlCvd - plCvd))
+    prevPlPrice := plPrice
+    prevPlCvd := plCvd
+bearZ = f_z(bearStrength, cvdDivWin)
+bullZ = f_z(bullStrength, cvdDivWin)
+W_div_long  = bearDiv ? 1.0 - 0.5 * f_sigmoid(bearZ * cvdDivSens) : 1.0
+W_div_short = bullDiv ? 1.0 - 0.5 * f_sigmoid(bullZ * cvdDivSens) : 1.0
+
+// 유동성(볼륨 z→sigmoid)
+volZ   = f_z(volume, lookDelta)
+liq01  = to01_from_z(volZ)
+
+// 압축 회피(TR/avgTR 역가중)
+avgTR  = ta.sma(tr, math.max(5, atrLen))
+comp   = avgTR > 0 ? tr / avgTR : 1.0
+comp01 = f_clamp(comp, 0.0, 2.0) / 2.0            // 0..1
+invComp01 = 1.0 - comp01                          // 압축(낮은 TR)일수록 ↑
+
+// Micro-score: IBS/CLV/CVD(+NR7/IBR) 혼합 → W_micro
+microRaw01 = 0.35*ib + 0.35*clv01 + 0.30*cvd01
+microRaw01 := na(ibr01) ? microRaw01 : (microRaw01*0.85 + 0.15*ibr01)
+microRaw01 := nr7 ? math.min(1.0, microRaw01 + 0.05) : microRaw01
+W_micro = w_micro_on ? soft01(microRaw01) : 1.0
+
+// Liquidity / Compression soft weights
+W_liq   = w_liq_on   ? soft01(liq01)      : 1.0
+W_vol   = w_vol_on   ? soft01(invComp01)  : 1.0
+
+// Cooldown guard and MAE/MFE logging
+var int lossStreak = 0
+var int cooldownLeft = 0
+var float[] maeLog = array.new_float()
+var float[] mfeLog = array.new_float()
+if strategy.closedtrades > strategy.closedtrades[1]
+    idx = strategy.closedtrades - 1
+    pl = strategy.closedtrades.profit(idx)
+    mae = strategy.closedtrades.max_drawdown(idx)
+    mfe = strategy.closedtrades.max_runup(idx)
+    array.unshift(maeLog, mae)
+    array.unshift(mfeLog, mfe)
+    if array.size(maeLog) > logTrades
+        array.pop(maeLog)
+        array.pop(mfeLog)
+    if pl < 0
+        lossStreak += 1
+    else
+        lossStreak := 0
+    if lossStreak >= lossTrig
+        cooldownLeft := lossCooldown
+        lossStreak := 0
+if cooldownLeft > 0
+    cooldownLeft -= 1
+W_cool = cooldownLeft > 0 ? cooldownW : 1.0
+
+// ===================== 4) BASE MOMENTUM (FALLBACK) =====================
+rsi    = ta.rsi(close, rsiLen)
+drsi   = rsi - rsi[1]
+roc    = ta.roc(close, rocLen)
+momo01 = f_clamp( mixMomo * to01_from_z(f_z(drsi, rsiLen)) + (1.0 - mixMomo) * to01_from_z(f_z(roc, rocLen)), 0.0, 1.0)
+momo   = 2.0*momo01 - 1.0   // [-1..1]
+
+// ===================== 5) FINAL SCORES =====================
+// ⚠️ 네 엔진의 최종 스코어가 이미 있다면, 아래 두 줄만 "네 변수명"으로 교체하면 됨.
+// baseLongScore  := your_final_long_score   // (0..1)
+// baseShortScore := your_final_short_score  // (0..1)
+baseLongScore  = f_clamp(  momo, 0.0, 1.0)     // fallback: 상승 모멘텀만
+baseShortScore = f_clamp(- momo, 0.0, 1.0)     // fallback: 하락 모멘텀만
+
+// Composite soft weights 적용
+longScore_gated  = baseLongScore  * W_micro * W_liq * W_vol * W_div_long  * W_cool
+shortScore_gated = baseShortScore * W_micro * W_liq * W_vol * W_div_short * W_cool
+
+// === 공개 표준 변수명 ===
+sig_final_long  = longScore_gated
+sig_final_short = shortScore_gated
+
+// ===================== 6) ENTRY/EXIT (SAMPLE, 확정봉만) =====================
+confirmed = barstate.isconfirmed
+enterLong  = confirmed and (sig_final_long  > thrLong)
+enterShort = confirmed and (sig_final_short > thrShort)
+
+atr = ta.atr(atrLen)
+R   = atr * atrSLmult
+
+// 샘플 포지션 사이징: 자본 20% 명목
+equity = strategy.equity
+notional = equity * 0.20
+qty     = notional / close
+
+longID  = "LONG"
+shortID = "SHORT"
+
+if (enterLong and strategy.position_size <= 0)
+    strategy.entry(longID, strategy.long, qty=qty)
+    alert("LONG_CONFIRMED|price=" + str.tostring(close), alert.freq_once_per_bar_close)
+
+if (enterShort and strategy.position_size >= 0)
+    strategy.entry(shortID, strategy.short, qty=qty)
+    alert("SHORT_CONFIRMED|price=" + str.tostring(close), alert.freq_once_per_bar_close)
+
+// SL/TP (부분청산 + 보호)
+inLong  = strategy.position_size > 0
+inShort = strategy.position_size < 0
+avgFill = strategy.position_avg_price
+
+if (inLong)
+    longSL  = avgFill - R
+    longTP1 = avgFill + R*tp1R
+    longTP2 = avgFill + R*tp2R
+    strategy.exit("L-TP1", from_entry=longID, limit=longTP1, qty_percent=tp1pct)
+    strategy.exit("L-TP2", from_entry=longID, limit=longTP2, qty_percent=100-tp1pct, stop=longSL)
+
+if (inShort)
+    shortSL  = avgFill + R
+    shortTP1 = avgFill - R*tp1R
+    shortTP2 = avgFill - R*tp2R
+    strategy.exit("S-TP1", from_entry=shortID, limit=shortTP1, qty_percent=tp1pct)
+    strategy.exit("S-TP2", from_entry=shortID, limit=shortTP2, qty_percent=100-tp1pct, stop=shortSL)
+
+// ===================== 7) PLOTS =====================
+plot(sig_final_long,  "sig_final_long [0..1]",  color=color.new(color.lime,  0))
+plot(sig_final_short, "sig_final_short[0..1]",  color=color.new(color.red,   0))
+plot(ib,              "IBS",                    color=color.new(color.aqua,  40))
+plot(clv01,           "CLV01",                  color=color.new(color.orange,40))
+plot(cvd01,           "CVD01(1m)",              color=color.new(color.blue,  40))
+
+// ===================== 8) 주의/검증 메모 =====================
+// - 모든 트리거는 확정봉 기준(리페인트 회피). request.security는 lookahead_off.
+// - strategy.exit 는 from_entry/qty_percent 정확히 사용. Pine v5 문법 일치.
+// - 외부 엔진 연결 시 baseLong/ShortScore 교체만 수행(엔진 불변 원칙).
