@@ -10,8 +10,8 @@
     "use_nr7_compression": true,
     "use_ibr_(inside_bar_ratio)": true,
     "use_cvd_divergence": true,
-    "cvd_divergence_lookback": 50,
-    "cvd_divergence_penalty": 0.7,
+    "cvd_divergence_window": 50,
+    "cvd_divergence_sensitivity": 1.0,
     "liquidity_weight_(vol_z→sigmoid)": true,
     "compression_weight_(tr/avgtr)": true,
     "micro_weight_(ibs/clv/cvd/nr7/ibr)": true,
@@ -19,7 +19,11 @@
     "sl_atr_mult": 2.0,
     "tp1_(r_multiple)": 1.0,
     "tp2_(r_multiple)": 2.0,
-    "tp1_close_(%)": 50
+    "tp1_close_(%)": 50,
+    "consecutive_loss_trigger": 3,
+    "cooldown_bars": 10,
+    "cooldown_weight": 0.6,
+    "log_n_trades_for_mae_mfe": 20
   },
   "symbols": ["BINANCE:BTCUSDT"],
   "timeframes": ["240","60","15"],

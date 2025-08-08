@@ -8,6 +8,10 @@
 - Replaces the legacy MACD trend gate with a microstructure composite layer.
 - Blends 1m CVD (uptick/downtick), IBS, CLV, NR7 and IBR, then applies
   liquidity and compression soft weights (0.5..1.0).
+- Optional CVD divergence weight softens signals when price and 1 m CVD
+  pivots disagree.
+- Tracks recent trade MAE/MFE and applies a soft cooldown after
+  consecutive losses.
 - All triggers run on confirmed bars only and `request.security` uses
   `lookahead_off`.
 - Final scores are exposed as `sig_final_long` and `sig_final_short`.

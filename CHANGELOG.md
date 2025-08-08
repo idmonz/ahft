@@ -6,6 +6,7 @@
 - Liquidity (vol z→sigmoid), Compression(TR/avgTR inverse) soft weights
 - Standardized final scores: sig_final_long / sig_final_short
 - Optional CVD divergence penalty
+- Soft cooldown guard and MAE/MFE trade logging
 ### Removed
 - MACD-based gating
 ### Notes

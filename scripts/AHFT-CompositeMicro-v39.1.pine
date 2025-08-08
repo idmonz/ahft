@@ -22,9 +22,9 @@ group_micro = "Microstructure Primitives"
 lookDelta    = input.int(50, "CVD z-score Lookback", 10, 1000, group=group_micro)
 useNR7       = input.bool(true, "Use NR7 Compression", group=group_micro)
 useIBR       = input.bool(true, "Use IBR (Inside Bar Ratio)", group=group_micro)
-useCvdDiv    = input.bool(true, "Use CVD Divergence", group=group_micro)
-divLook      = input.int(50, "CVD Divergence Lookback", 5, 1000, group=group_micro)
-divPenalty   = input.float(0.7, "CVD Divergence Penalty", 0.5, 1.0, group=group_micro)
+useCvdDiv  = input.bool(true, "Use CVD Divergence", group=group_micro)
+cvdDivWin  = input.int(50, "CVD Divergence Window", 5, 1000, group=group_micro)
+cvdDivSens = input.float(1.0, "CVD Divergence Sensitivity", 0.1, 10.0, group=group_micro)
 
 group_weight = "Composite Soft Weights"
 w_liq_on   = input.bool(true,  "Liquidity weight (vol z→sigmoid)", group=group_weight)
@@ -37,6 +37,12 @@ atrSLmult  = input.float(2.0, "SL ATR Mult", 0.1, 10.0, group=group_risk)
 tp1R       = input.float(1.0, "TP1 (R multiple)", 0.2, 5.0, group=group_risk)
 tp2R       = input.float(2.0, "TP2 (R multiple)", 0.3, 10.0, group=group_risk)
 tp1pct     = input.float(50,  "TP1 Close (%)", 5, 95, group=group_risk)
+
+group_guard = "Risk Controls"
+lossTrig   = input.int(3, "Consecutive Loss Trigger", 1, 10, group=group_guard)
+lossCooldown = input.int(10, "Cooldown Bars", 1, 500, group=group_guard)
+cooldownW = input.float(0.6, "Cooldown Weight", 0.5, 1.0, group=group_guard)
+logTrades  = input.int(20, "Log N Trades for MAE/MFE", 1, 100, group=group_guard)
 
 // ===================== 2) UTILS =====================
 f_clamp(x, lo, hi) =>
@@ -81,14 +87,32 @@ cvdZ   = f_z(cvdDeltaBar, lookDelta)
 cvd01  = to01_from_z(cvdZ)
 
 // CVD divergence (optional soft weight)
-priceHH = ta.highest(high, divLook)
-priceLL = ta.lowest(low, divLook)
-cvdHH   = ta.highest(cvd1m, divLook)
-cvdLL   = ta.lowest(cvd1m, divLook)
-bearDiv = useCvdDiv and high >= priceHH[1] and cvd1m <= cvdHH[1]
-bullDiv = useCvdDiv and low <= priceLL[1] and cvd1m >= cvdLL[1]
-W_div_long  = bearDiv ? divPenalty : 1.0
-W_div_short = bullDiv ? divPenalty : 1.0
+phPrice = ta.pivothigh(high, 3, 3)
+plPrice = ta.pivotlow(low, 3, 3)
+phCvd   = ta.pivothigh(cvd1m, 3, 3)
+plCvd   = ta.pivotlow(cvd1m, 3, 3)
+var float prevPhPrice = na
+var float prevPhCvd = na
+var float prevPlPrice = na
+var float prevPlCvd = na
+bearStrength = 0.0
+bullStrength = 0.0
+bearDiv = false
+bullDiv = false
+if not na(phPrice)
+    bearDiv := useCvdDiv and not na(prevPhPrice) and phPrice > prevPhPrice and phCvd <= prevPhCvd
+    bearStrength := math.abs((phPrice - prevPhPrice) - (phCvd - prevPhCvd))
+    prevPhPrice := phPrice
+    prevPhCvd := phCvd
+if not na(plPrice)
+    bullDiv := useCvdDiv and not na(prevPlPrice) and plPrice < prevPlPrice and plCvd >= prevPlCvd
+    bullStrength := math.abs((prevPlPrice - plPrice) - (prevPlCvd - plCvd))
+    prevPlPrice := plPrice
+    prevPlCvd := plCvd
+bearZ = f_z(bearStrength, cvdDivWin)
+bullZ = f_z(bullStrength, cvdDivWin)
+W_div_long  = bearDiv ? 1.0 - 0.5 * f_sigmoid(bearZ * cvdDivSens) : 1.0
+W_div_short = bullDiv ? 1.0 - 0.5 * f_sigmoid(bullZ * cvdDivSens) : 1.0
 
 // 유동성(볼륨 z→sigmoid)
 volZ   = f_z(volume, lookDelta)
@@ -110,6 +134,32 @@ W_micro = w_micro_on ? soft01(microRaw01) : 1.0
 W_liq   = w_liq_on   ? soft01(liq01)      : 1.0
 W_vol   = w_vol_on   ? soft01(invComp01)  : 1.0
 
+// Cooldown guard and MAE/MFE logging
+var int lossStreak = 0
+var int cooldownLeft = 0
+var float[] maeLog = array.new_float()
+var float[] mfeLog = array.new_float()
+if strategy.closedtrades > strategy.closedtrades[1]
+    idx = strategy.closedtrades - 1
+    pl = strategy.closedtrades.profit(idx)
+    mae = strategy.closedtrades.max_drawdown(idx)
+    mfe = strategy.closedtrades.max_runup(idx)
+    array.unshift(maeLog, mae)
+    array.unshift(mfeLog, mfe)
+    if array.size(maeLog) > logTrades
+        array.pop(maeLog)
+        array.pop(mfeLog)
+    if pl < 0
+        lossStreak += 1
+    else
+        lossStreak := 0
+    if lossStreak >= lossTrig
+        cooldownLeft := lossCooldown
+        lossStreak := 0
+if cooldownLeft > 0
+    cooldownLeft -= 1
+W_cool = cooldownLeft > 0 ? cooldownW : 1.0
+
 // ===================== 4) BASE MOMENTUM (FALLBACK) =====================
 rsi    = ta.rsi(close, rsiLen)
 drsi   = rsi - rsi[1]
@@ -125,8 +175,8 @@ baseLongScore  = f_clamp(  momo, 0.0, 1.0)     // fallback: 상승 모멘텀만
 baseShortScore = f_clamp(- momo, 0.0, 1.0)     // fallback: 하락 모멘텀만
 
 // Composite soft weights 적용
-longScore_gated  = baseLongScore  * W_micro * W_liq * W_vol * W_div_long
-shortScore_gated = baseShortScore * W_micro * W_liq * W_vol * W_div_short
+longScore_gated  = baseLongScore  * W_micro * W_liq * W_vol * W_div_long  * W_cool
+shortScore_gated = baseShortScore * W_micro * W_liq * W_vol * W_div_short * W_cool
 
 // === 공개 표준 변수명 ===
 sig_final_long  = longScore_gated
