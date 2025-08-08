@@ -1,5 +1,17 @@
 # Changelog
 
+## [v39.1] - 2025-08-08
+### Added
+- Composite soft gating using 1m CVD (uptick/downtick rule), IBS, CLV, NR7, IBR
+- Liquidity (vol z→sigmoid), Compression(TR/avgTR inverse) soft weights
+- Standardized final scores: sig_final_long / sig_final_short
+- Optional CVD divergence penalty
+### Removed
+- MACD-based gating
+### Notes
+- Anti-repaint: barstate.isconfirmed only; request.security lookahead_off strictly.
+
+
 ## v39.0-dev – 2025-07-10
 - Introduced MACD gating with adaptive weight to align trades with trend
 - Bump `ahft_utils` library to v2 and update import path to `/2`

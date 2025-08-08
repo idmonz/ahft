@@ -1,0 +1,28 @@
+{
+  "script_path": "scripts/AHFT-CompositeMicro-v39.1.pine",
+  "inputs": {
+    "long_threshold_[0..1]": 0.25,
+    "short_threshold_[0..1]": 0.25,
+    "rsi_len": 14,
+    "roc_len": 14,
+    "mix_rsiΔ~roc_(0..1)": 0.5,
+    "cvd_z-score_lookback": 50,
+    "use_nr7_compression": true,
+    "use_ibr_(inside_bar_ratio)": true,
+    "use_cvd_divergence": true,
+    "cvd_divergence_lookback": 50,
+    "cvd_divergence_penalty": 0.7,
+    "liquidity_weight_(vol_z→sigmoid)": true,
+    "compression_weight_(tr/avgtr)": true,
+    "micro_weight_(ibs/clv/cvd/nr7/ibr)": true,
+    "atr_len": 14,
+    "sl_atr_mult": 2.0,
+    "tp1_(r_multiple)": 1.0,
+    "tp2_(r_multiple)": 2.0,
+    "tp1_close_(%)": 50
+  },
+  "symbols": ["BINANCE:BTCUSDT"],
+  "timeframes": ["240","60","15"],
+  "start": "2023-01-01",
+  "end": "2025-07-31"
+}
